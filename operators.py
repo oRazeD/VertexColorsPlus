@@ -7,6 +7,7 @@ class VCOLORPLUS_OT_operator(Operator):
     """Operator description"""
     bl_idname = "vcolor_plus.operator"
     bl_label = "Operator Name"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         return{'FINISHED'}
@@ -16,6 +17,7 @@ class VCOLORPLUS_OT_vcolor_shading(Operator):
     """Saves current shading settings and sets up optimal vertex color shading"""
     bl_idname = "vcolor_plus.vcolor_shading_toggle"
     bl_label = "_VColor Shading Mode"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         return{'FINISHED'}
@@ -25,6 +27,7 @@ class VCOLORPLUS_OT_edit_color(Operator):
     """Edits the active vertex color set based on the selected operator"""
     bl_idname = "vcolor_plus.edit_color"
     bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
 
     edit_type: bpy.props.EnumProperty(
         items=(
@@ -32,8 +35,22 @@ class VCOLORPLUS_OT_edit_color(Operator):
             ('apply_all', "Apply All", ""),
             ('clear', "Clear", ""),
             ('clear_all', "Clear All", "")
-        )
+        ),
+        options={'HIDDEN'}
     )
+
+    def change_vcolor(self, context, layer, loop):
+        if self.edit_type == 'apply' and loop.vert.select:
+            loop[layer] = context.scene.vcolor_plus.color_wheel
+
+        elif self.edit_type == 'apply_all':
+            loop[layer] = context.scene.vcolor_plus.color_wheel
+
+        elif self.edit_type == 'clear' and loop.vert.select:
+            loop[layer] = [1,1,1,1]
+
+        elif self.edit_type == 'clear_all':
+            loop[layer] = [1,1,1,1]
 
     def execute(self, context):
         saved_context_mode = context.object.mode
@@ -51,18 +68,13 @@ class VCOLORPLUS_OT_edit_color(Operator):
             layer = bm.loops.layers.color[context.object.data.vertex_colors.active.name]
 
         for face in bm.faces:
-            for loop in face.loops:
-                if self.edit_type == 'apply' and loop.vert.select:
-                    loop[layer] = context.scene.vcolor_plus.color_wheel
-
-                elif self.edit_type == 'apply_all':
-                    loop[layer] = context.scene.vcolor_plus.color_wheel
-
-                elif self.edit_type == 'clear' and loop.vert.select:
-                    loop[layer] = [1,1,1,1]
-
-                elif self.edit_type == 'clear_all':
-                    loop[layer] = [1,1,1,1]
+            if context.scene.vcolor_plus.smooth_hard_application == 'hard':
+                if face.select:
+                    for loop in face.loops:
+                        self.change_vcolor(context, layer=layer, loop=loop)
+            else:
+                for loop in face.loops:
+                        self.change_vcolor(context, layer=layer, loop=loop)
 
         bm.to_mesh(context.object.data)
 
@@ -74,6 +86,7 @@ class VCOLORPLUS_OT_get_active_color(Operator):
     """Set the active color based on the actively selected vertex color"""
     bl_idname = "vcolor_plus.get_active_color"
     bl_label = "Color from Active Vertex"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         if not context.object.data.vertex_colors:
@@ -118,9 +131,13 @@ class VCOLORPLUS_OT_quick_color_switch(Operator):
     """Switch between your main and alternate color"""
     bl_idname = "vcolor_plus.quick_color_switch"
     bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
+
+        saved_color_tweak = vcolor_plus.live_color_tweak
+        vcolor_plus.live_color_tweak = False
 
         saved_main_color = (
             vcolor_plus.color_wheel[0],
@@ -138,6 +155,8 @@ class VCOLORPLUS_OT_quick_color_switch(Operator):
 
         vcolor_plus.color_wheel = saved_alt_color
         vcolor_plus.alt_color_wheel = saved_main_color
+
+        vcolor_plus.live_color_tweak = saved_color_tweak
         return{'FINISHED'}
 
 

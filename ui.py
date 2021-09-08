@@ -59,6 +59,13 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.operator("vcolor_plus.edit_color", text='Apply to Selection', icon='CHECKMARK').edit_type = 'apply'
         split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
 
+        row = col.row()
+        row.prop(vcolor_plus, 'smooth_hard_application', expand=True)
+
+        if vcolor_plus.smooth_hard_application == 'hard':
+            box = col.box()
+            box.label(text='Only works with face selections', icon='INFO')
+
         layout.separator()
 
         layout.operator("vcolor_plus.edit_color", text='Apply to All').edit_type = 'apply_all'

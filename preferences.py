@@ -1,6 +1,5 @@
-from typing import Sized
-import bpy, os
-from bpy.props import BoolProperty, PointerProperty, StringProperty, EnumProperty, IntProperty, FloatProperty, FloatVectorProperty
+import bpy
+from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty
 
 
 ############################################################
@@ -45,6 +44,13 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     live_color_tweak: BoolProperty(
         name="Live Tweak",
         description='If enabled, changing the Active Color will update any vertices that are selected'
+    )
+
+    smooth_hard_application: EnumProperty(
+        items=(
+            ('smooth', "Smooth", ""),
+            ('hard', "Hard", "")
+        )
     )
 
 
