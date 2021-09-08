@@ -3,16 +3,6 @@ import bpy, bmesh
 from bpy.types import Operator
 
 
-class VCOLORPLUS_OT_operator(Operator):
-    """Operator description"""
-    bl_idname = "vcolor_plus.operator"
-    bl_label = "Operator Name"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        return{'FINISHED'}
-
-
 class VCOLORPLUS_OT_vcolor_shading(Operator):
     """Saves current shading settings and sets up optimal vertex color shading"""
     bl_idname = "vcolor_plus.vcolor_shading_toggle"
@@ -21,6 +11,28 @@ class VCOLORPLUS_OT_vcolor_shading(Operator):
 
     def execute(self, context):
         return{'FINISHED'}
+
+
+class VCOLORPLUS_OT_value_variation(Operator):
+    """Applies value variation to the selection without needing to change the Active Color"""
+    bl_idname = "vcolor_plus.value_variation"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    variation_value: bpy.props.EnumProperty(
+        items=(
+            ('.2', ".2", ""),
+            ('.4', ".4", ""),
+            ('.6', ".6", ""),
+            ('.8', ".8", ""),
+            ('1', "1", "")
+        ),
+        options={'HIDDEN'}
+    )
+
+    def execute(self, context):
+        bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value=self.variation_value)
+        return {'FINISHED'}
 
 
 class VCOLORPLUS_OT_edit_color(Operator):
@@ -39,12 +51,14 @@ class VCOLORPLUS_OT_edit_color(Operator):
         options={'HIDDEN'}
     )
 
-    def change_vcolor(self, context, layer, loop):
+    variation_value: bpy.props.StringProperty(default='0')
+
+    def change_vcolor(self, context, layer, loop, rgb_value):
         if self.edit_type == 'apply' and loop.vert.select:
-            loop[layer] = context.scene.vcolor_plus.color_wheel
+            loop[layer] = rgb_value
 
         elif self.edit_type == 'apply_all':
-            loop[layer] = context.scene.vcolor_plus.color_wheel
+            loop[layer] = rgb_value
 
         elif self.edit_type == 'clear' and loop.vert.select:
             loop[layer] = [1,1,1,1]
@@ -53,12 +67,27 @@ class VCOLORPLUS_OT_edit_color(Operator):
             loop[layer] = [1,1,1,1]
 
     def execute(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+
         saved_context_mode = context.object.mode
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
         bm = bmesh.new()
         bm.from_mesh(context.object.data)
+
+        if self.variation_value == '.2':
+            rgb_value = (vcolor_plus.color_var_1[0], vcolor_plus.color_var_1[1], vcolor_plus.color_var_1[2], vcolor_plus.color_wheel[3])
+        elif self.variation_value == '.4':
+            rgb_value = (vcolor_plus.color_var_2[0], vcolor_plus.color_var_2[1], vcolor_plus.color_var_2[2], vcolor_plus.color_wheel[3])
+        elif self.variation_value == '.6':
+            rgb_value = (vcolor_plus.color_var_3[0], vcolor_plus.color_var_3[1], vcolor_plus.color_var_3[2], vcolor_plus.color_wheel[3])
+        elif self.variation_value == '.8':
+            rgb_value = (vcolor_plus.color_var_4[0], vcolor_plus.color_var_4[1], vcolor_plus.color_var_4[2], vcolor_plus.color_wheel[3])
+        elif self.variation_value == '1':
+            rgb_value = (vcolor_plus.color_var_5[0], vcolor_plus.color_var_5[1], vcolor_plus.color_var_5[2], vcolor_plus.color_wheel[3])
+        else:
+            rgb_value = vcolor_plus.color_wheel
 
         if not context.object.data.vertex_colors:
             color_layer = bm.loops.layers.color.new("col")
@@ -68,13 +97,12 @@ class VCOLORPLUS_OT_edit_color(Operator):
             layer = bm.loops.layers.color[context.object.data.vertex_colors.active.name]
 
         for face in bm.faces:
-            if context.scene.vcolor_plus.smooth_hard_application == 'hard':
-                if face.select:
-                    for loop in face.loops:
-                        self.change_vcolor(context, layer=layer, loop=loop)
+            if vcolor_plus.smooth_hard_application == 'hard' and face.select:
+                for loop in face.loops:
+                    self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
             else:
                 for loop in face.loops:
-                        self.change_vcolor(context, layer=layer, loop=loop)
+                        self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
 
         bm.to_mesh(context.object.data)
 
@@ -90,8 +118,8 @@ class VCOLORPLUS_OT_get_active_color(Operator):
 
     def execute(self, context):
         if not context.object.data.vertex_colors:
-            self.report({'ERROR'}, "There is no Vertex Color sets on the Active Object")
-            return{'CANCELLED'}
+            context.scene.vcolor_plus.color_wheel = (1, 1, 1, 1)
+            return{'FINISHED'}
 
         saved_context_mode = context.object.mode
 
@@ -103,9 +131,9 @@ class VCOLORPLUS_OT_get_active_color(Operator):
         layer = bm.loops.layers.color[context.object.data.vertex_colors.active.name]
 
         try:
-            elem = bm.select_history[-1]
+            active_selection = bm.select_history[-1]
 
-            if not isinstance(elem, bmesh.types.BMVert):
+            if not isinstance(active_selection, bmesh.types.BMVert):
                 self.report({'ERROR'}, "There is more than one Active Vertex selected, please select only one active vertex")
                 bpy.ops.object.mode_set(mode = saved_context_mode)
                 return{'CANCELLED'}
@@ -113,14 +141,13 @@ class VCOLORPLUS_OT_get_active_color(Operator):
                 for face in bm.faces:
                     for loop in face.loops:
                         if loop.vert.select:
-                            if loop.vert.select and loop.vert == elem:
+                            if loop.vert.select and loop.vert == active_selection:
                                 context.scene.vcolor_plus.color_wheel = loop[layer]
                         
                 bm.to_mesh(context.object.data)
 
                 bpy.ops.object.mode_set(mode = saved_context_mode)
                 return {'FINISHED'}
-
         except IndexError:
             self.report({'ERROR'}, "There is no Active Vertex selected")
             bpy.ops.object.mode_set(mode = saved_context_mode)
@@ -166,9 +193,9 @@ class VCOLORPLUS_OT_quick_color_switch(Operator):
 
 
 classes = (
-    VCOLORPLUS_OT_operator,
     VCOLORPLUS_OT_get_active_color,
     VCOLORPLUS_OT_vcolor_shading,
+    VCOLORPLUS_OT_value_variation,
     VCOLORPLUS_OT_edit_color,
     VCOLORPLUS_OT_quick_color_switch
 )

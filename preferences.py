@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty
-
+import colorsys
 
 ############################################################
 # PROPERTY GROUP
@@ -16,9 +16,17 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
             bpy.ops.vcolor_plus.edit_color(edit_type='apply')
 
         # Update draw brush in vertex color mode
-        bpy.data.brushes["Draw"].color[0] = self.color_wheel[0]
-        bpy.data.brushes["Draw"].color[1] = self.color_wheel[1]
-        bpy.data.brushes["Draw"].color[2] = self.color_wheel[2]
+        bpy.data.brushes["Draw"].color = (self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
+
+        # Convert the RGB value to HSV for easy tweaking
+        color_wheel_hsv = colorsys.rgb_to_hsv(self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
+        
+        # Set value of color variation previews
+        self.color_var_1 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .2)
+        self.color_var_2 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .4)
+        self.color_var_3 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .6)
+        self.color_var_4 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .8)
+        self.color_var_5 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], 1)
 
     ### PROPERTIES ###
 
@@ -40,6 +48,47 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         min=0,
         max=1
     )
+
+    color_var_1: FloatVectorProperty(
+        name="",
+        subtype='COLOR',
+        default=[0, 0, 0],
+        min=0,
+        max=1
+    )
+
+    color_var_2: FloatVectorProperty(
+        name="",
+        subtype='COLOR',
+        default=[0, 0, 0],
+        min=0,
+        max=1
+    )
+
+    color_var_3: FloatVectorProperty(
+        name="",
+        subtype='COLOR',
+        default=[0, 0, 0],
+        min=0,
+        max=1
+    )
+
+    color_var_4: FloatVectorProperty(
+        name="",
+        subtype='COLOR',
+        default=[0, 0, 0],
+        min=0,
+        max=1
+    )
+
+    color_var_5: FloatVectorProperty(
+        name="",
+        subtype='COLOR',
+        default=[0, 0, 0],
+        min=0,
+        max=1
+    )
+
 
     live_color_tweak: BoolProperty(
         name="Live Tweak",

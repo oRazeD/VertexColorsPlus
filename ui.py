@@ -29,7 +29,15 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         row.scale_y = 1.5
         row.operator("vcolor_plus.vcolor_shading_toggle", icon='VPAINT_HLT')
 
+        layout.separator(factor=.25)
+
         col = layout.column(align=True)
+        
+        split = col.split(factor=.7, align=True)
+        split.scale_y = 1.3
+        split.operator("vcolor_plus.edit_color", text='Apply to Selection', icon='CHECKMARK').edit_type = 'apply'
+        split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
+
         box = col.box()
 
         col2 = box.column(align=True)
@@ -54,24 +62,58 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.separator()
         split.prop(vcolor_plus, 'live_color_tweak')
 
-        split = col.split(factor=.65, align=True)
-        split.scale_y = 1.3
-        split.operator("vcolor_plus.edit_color", text='Apply to Selection', icon='CHECKMARK').edit_type = 'apply'
-        split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
-
+        col = layout.column(align=True)
         row = col.row()
         row.prop(vcolor_plus, 'smooth_hard_application', expand=True)
-
+        
         if vcolor_plus.smooth_hard_application == 'hard':
             box = col.box()
             box.label(text='Only works with face selections', icon='INFO')
 
-        layout.separator()
-
-        layout.operator("vcolor_plus.edit_color", text='Apply to All').edit_type = 'apply_all'
-        layout.operator("vcolor_plus.edit_color", text='Clear All').edit_type = 'clear_all'
-
         layout.operator("vcolor_plus.get_active_color")
+
+
+class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
+    bl_label = 'Quick Apply'
+    bl_parent_id = 'VCOLORPLUS_PT_ui'
+
+    def draw(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+
+        layout = self.layout
+
+        col = layout.column(align=True)
+        col.operator("vcolor_plus.edit_color", text='Apply to All').edit_type = 'apply_all'
+        col.operator("vcolor_plus.edit_color", text='Clear All').edit_type = 'clear_all'
+
+        box = layout.box()
+        col = box.column(align=True)
+
+        split = col.split(factor=.4, align=True)
+        split.label(text='Value Variation')
+
+        row = col.row(align=True)
+        row.operator("vcolor_plus.value_variation", text='.2').variation_value = '.2'
+        row.operator("vcolor_plus.value_variation", text='.4').variation_value = '.4'
+        row.operator("vcolor_plus.value_variation", text='.6').variation_value = '.6'
+        row.operator("vcolor_plus.value_variation", text='.8').variation_value = '.8'
+        row.operator("vcolor_plus.value_variation", text='1').variation_value = '1'
+
+        row = col.row(align=True)
+        row.enabled = False
+        row.prop(vcolor_plus, 'color_var_1')
+        row.prop(vcolor_plus, 'color_var_2')
+        row.prop(vcolor_plus, 'color_var_3')
+        row.prop(vcolor_plus, 'color_var_4')
+        row.prop(vcolor_plus, 'color_var_5')
+
+
+class VCOLORPLUS_PT_active_palate(PanelInfo, Panel):
+    bl_label = 'Active Palate'
+    bl_parent_id = 'VCOLORPLUS_PT_ui'
+
+    def draw(self, context):
+        layout = self.layout
 
 
 class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
@@ -102,6 +144,8 @@ class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
 
 classes = (
     VCOLORPLUS_PT_ui,
+    VCOLORPLUS_PT_quick_apply,
+    VCOLORPLUS_PT_active_palate,
     VCOLORPLUS_PT_vcolor_sets
 )
 
