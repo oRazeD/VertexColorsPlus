@@ -97,9 +97,10 @@ class VCOLORPLUS_OT_edit_color(Operator):
             layer = bm.loops.layers.color[context.object.data.vertex_colors.active.name]
 
         for face in bm.faces:
-            if vcolor_plus.smooth_hard_application == 'hard' and face.select:
-                for loop in face.loops:
-                    self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
+            if vcolor_plus.smooth_hard_application == 'hard':
+                if face.select:
+                    for loop in face.loops:
+                        self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
             else:
                 for loop in face.loops:
                         self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
