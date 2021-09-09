@@ -1,6 +1,79 @@
 import bpy
 from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty
 import colorsys
+from bl_operators.presets import AddPresetBase
+from bl_ui.utils import PresetPanel
+from bpy.types import Panel, Menu
+
+
+################################################################################################################
+# PRESETS
+################################################################################################################
+
+
+class VCOLORPLUS_MT_presets(Menu):
+    bl_label = ""
+    preset_subdir = "vcolor_plus"
+    preset_operator = "script.execute_preset"
+    draw = Menu.draw_preset
+
+
+class VCOLORPLUS_PT_presets(PresetPanel, Panel):
+    bl_label = 'VColor Plus Presets'
+    preset_subdir = 'vcolor_plus'
+    preset_operator = 'script.execute_preset'
+    preset_add_operator = 'vcolor_plus.preset_add'
+
+
+class VCOLORPLUS_OT_add_preset(AddPresetBase, bpy.types.Operator):
+    bl_idname = "vcolor_plus.preset_add"
+    bl_label = "Add a new preset"
+    preset_menu = "VCOLORPLUS_MT_presets"
+
+    # Variable used for all preset values
+    preset_defines = ["vcolor_plus=bpy.context.scene.vcolor_plus"]
+
+    # Properties to store in the preset
+    preset_values = [
+        "vcolor_plus.color_custom_1",
+        "vcolor_plus.color_custom_2",
+        "vcolor_plus.color_custom_3",
+        "vcolor_plus.color_custom_4",
+        "vcolor_plus.color_custom_5",
+        "vcolor_plus.color_custom_6",
+        "vcolor_plus.color_custom_7",
+        "vcolor_plus.color_custom_8",
+        "vcolor_plus.color_custom_9",
+        "vcolor_plus.color_custom_10",
+        "vcolor_plus.color_custom_11",
+        "vcolor_plus.color_custom_12",
+        "vcolor_plus.color_custom_13",
+        "vcolor_plus.color_custom_14",
+        "vcolor_plus.color_custom_15",
+        "vcolor_plus.color_custom_16",
+        "vcolor_plus.color_custom_17",
+        "vcolor_plus.color_custom_18",
+        "vcolor_plus.color_custom_19",
+        "vcolor_plus.color_custom_20",
+    ]
+
+    # Where to store the preset
+    preset_subdir = "vcolor_plus"
+
+
+############################################################
+# USER PREFERENCES
+############################################################
+
+
+class VCOLORPLUS_MT_addon_prefs(bpy.types.AddonPreferences):
+    bl_idname=__package__
+
+    def draw(self, context):
+        layout=self.layout
+
+        layout.label(text='Keymaps TODO')
+
 
 ############################################################
 # PROPERTY GROUP
@@ -30,6 +103,32 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
     ### PROPERTIES ###
 
+    live_color_tweak: BoolProperty(
+        name="Live Tweak",
+        description='If enabled, changing the Active Color will update any vertices that are selected'
+    )
+
+    smooth_hard_application: EnumProperty(
+        items=(
+            ('smooth', "Smooth", ""),
+            ('hard', "Hard", "")
+        )
+    )
+
+    custom_palate_apply_options: EnumProperty(
+        items=(
+            ('apply_to_sel', "Fill Selection", ""),
+            ('apply_to_col', "Apply Active Color", "")
+        )
+    )
+
+    vcolor_convert_options: EnumProperty(
+        items=(
+            ('vgroup_per_color', "VGroup per Color", ""),
+            ('vgroup_to_rgba', "VColor to RGBA", "")
+        )
+    )
+
     color_wheel: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
@@ -52,7 +151,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_var_1: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0],
+        default=[.2, .2, .2],
         min=0,
         max=1
     )
@@ -60,7 +159,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_var_2: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0],
+        default=[.4, .4, .4],
         min=0,
         max=1
     )
@@ -68,7 +167,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_var_3: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0],
+        default=[.6, .6, .6],
         min=0,
         max=1
     )
@@ -76,7 +175,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_var_4: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0],
+        default=[.8, .8, .8],
         min=0,
         max=1
     )
@@ -84,22 +183,234 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_var_5: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0],
+        default=[1, 1, 1],
         min=0,
         max=1
     )
 
-
-    live_color_tweak: BoolProperty(
-        name="Live Tweak",
-        description='If enabled, changing the Active Color will update any vertices that are selected'
+    color_alpha_1: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, .2],
+        size=4,
+        min=0,
+        max=1
     )
 
-    smooth_hard_application: EnumProperty(
-        items=(
-            ('smooth', "Smooth", ""),
-            ('hard', "Hard", "")
-        )
+    color_alpha_2: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, .4],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_alpha_3: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, .6],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_alpha_4: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, .8],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_alpha_5: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_1: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[1, 0, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_2: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 1, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_3: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 1, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_4: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[1, 1, 1, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_5: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.75, .75, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_6: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, .75, .75, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_7: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.75, 0, .75, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_8: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.75, .75, .75, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_9: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.5, .75, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_10: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, .5, .75, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_11: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.75, 0, .5, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_12: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.5, .5, .5, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_13: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.25, .5, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_14: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, .5, .25, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_15: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.25, 0, .5, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_16: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.25, .25, .25, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_17: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.1, .25, .1, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_18: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.25, .1, .1, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_19: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[.1, .1, .25, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    color_custom_20: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, 1],
+        size=4,
+        min=0,
+        max=1
     )
 
 
@@ -109,6 +420,10 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
 
 classes = (
+    VCOLORPLUS_MT_presets,
+    VCOLORPLUS_PT_presets,
+    VCOLORPLUS_OT_add_preset,
+    VCOLORPLUS_MT_addon_prefs,
     VCOLORPLUS_property_group,
 )
 

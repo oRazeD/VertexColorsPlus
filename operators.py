@@ -6,7 +6,7 @@ from bpy.types import Operator
 class VCOLORPLUS_OT_vcolor_shading(Operator):
     """Saves current shading settings and sets up optimal vertex color shading"""
     bl_idname = "vcolor_plus.vcolor_shading_toggle"
-    bl_label = "_VColor Shading Mode"
+    bl_label = "VColor Shading Mode"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -86,11 +86,51 @@ class VCOLORPLUS_OT_edit_color(Operator):
             rgb_value = (vcolor_plus.color_var_4[0], vcolor_plus.color_var_4[1], vcolor_plus.color_var_4[2], vcolor_plus.color_wheel[3])
         elif self.variation_value == '1':
             rgb_value = (vcolor_plus.color_var_5[0], vcolor_plus.color_var_5[1], vcolor_plus.color_var_5[2], vcolor_plus.color_wheel[3])
+        elif self.variation_value == 'c1':
+            rgb_value = vcolor_plus.color_custom_1
+        elif self.variation_value == 'c2':
+            rgb_value = vcolor_plus.color_custom_2
+        elif self.variation_value == 'c3':
+            rgb_value = vcolor_plus.color_custom_3
+        elif self.variation_value == 'c4':
+            rgb_value = vcolor_plus.color_custom_4
+        elif self.variation_value == 'c5':
+            rgb_value = vcolor_plus.color_custom_5
+        elif self.variation_value == 'c6':
+            rgb_value = vcolor_plus.color_custom_6
+        elif self.variation_value == 'c7':
+            rgb_value = vcolor_plus.color_custom_7
+        elif self.variation_value == 'c8':
+            rgb_value = vcolor_plus.color_custom_8
+        elif self.variation_value == 'c9':
+            rgb_value = vcolor_plus.color_custom_9
+        elif self.variation_value == 'c10':
+            rgb_value = vcolor_plus.color_custom_10
+        elif self.variation_value == 'c11':
+            rgb_value = vcolor_plus.color_custom_11
+        elif self.variation_value == 'c12':
+            rgb_value = vcolor_plus.color_custom_12
+        elif self.variation_value == 'c13':
+            rgb_value = vcolor_plus.color_custom_13
+        elif self.variation_value == 'c14':
+            rgb_value = vcolor_plus.color_custom_14
+        elif self.variation_value == 'c15':
+            rgb_value = vcolor_plus.color_custom_15
+        elif self.variation_value == 'c16':
+            rgb_value = vcolor_plus.color_custom_16
+        elif self.variation_value == 'c17':
+            rgb_value = vcolor_plus.color_custom_17
+        elif self.variation_value == 'c18':
+            rgb_value = vcolor_plus.color_custom_18
+        elif self.variation_value == 'c19':
+            rgb_value = vcolor_plus.color_custom_19
+        elif self.variation_value == 'c20':
+            rgb_value = vcolor_plus.color_custom_20
         else:
             rgb_value = vcolor_plus.color_wheel
 
         if not context.object.data.vertex_colors:
-            color_layer = bm.loops.layers.color.new("col")
+            color_layer = bm.loops.layers.color.new("Col")
 
             layer = bm.loops.layers.color[color_layer.name]
         else:
@@ -155,6 +195,87 @@ class VCOLORPLUS_OT_get_active_color(Operator):
             return{'CANCELLED'}
 
 
+class VCOLORPLUS_OT_custom_color_apply(Operator):
+    """Apply the color to your current selection or to your Active Color"""
+    bl_idname = "vcolor_plus.custom_color_apply"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    custom_color_name: bpy.props.EnumProperty(
+        items=(
+            ('c1', "Custom 1", ""),
+            ('c2', "Custom 2", ""),
+            ('c3', "Custom 3", ""),
+            ('c4', "Custom 4", ""),
+            ('c5', "Custom 5", ""),
+            ('c6', "Custom 6", ""),
+            ('c7', "Custom 7", ""),
+            ('c8', "Custom 8", ""),
+            ('c9', "Custom 9", ""),
+            ('c10', "Custom 10", ""),
+            ('c11', "Custom 11", ""),
+            ('c12', "Custom 12", ""),
+            ('c13', "Custom 13", ""),
+            ('c14', "Custom 14", ""),
+            ('c15', "Custom 15", ""),
+            ('c16', "Custom 16", ""),
+            ('c17', "Custom 17", ""),
+            ('c18', "Custom 18", ""),
+            ('c19', "Custom 19", ""),
+            ('c20', "Custom 20", ""),
+        ),
+        options={'HIDDEN'}
+    )
+
+    def execute(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+
+        if vcolor_plus.custom_palate_apply_options == 'apply_to_sel':
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value=self.custom_color_name)
+        else: # Apply to Active Color
+            if self.custom_color_name == 'c1':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_1
+            elif self.custom_color_name == 'c2':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_2
+            elif self.custom_color_name == 'c3':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_3
+            elif self.custom_color_name == 'c4':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_4
+            elif self.custom_color_name == 'c5':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_5
+            elif self.custom_color_name == 'c6':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_6
+            elif self.custom_color_name == 'c7':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_7
+            elif self.custom_color_name == 'c8':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_8
+            elif self.custom_color_name == 'c9':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_9
+            elif self.custom_color_name == 'c10':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_10
+            elif self.custom_color_name == 'c11':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_11
+            elif self.custom_color_name == 'c12':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_12
+            elif self.custom_color_name == 'c13':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_13
+            elif self.custom_color_name == 'c14':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_14
+            elif self.custom_color_name == 'c15':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_15
+            elif self.custom_color_name == 'c16':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_16
+            elif self.custom_color_name == 'c17':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_17
+            elif self.custom_color_name == 'c18':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_18
+            elif self.custom_color_name == 'c19':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_19
+            elif self.custom_color_name == 'c20':
+                vcolor_plus.color_wheel = vcolor_plus.color_custom_20
+        return{'FINISHED'}
+
+
 class VCOLORPLUS_OT_quick_color_switch(Operator):
     """Switch between your main and alternate color"""
     bl_idname = "vcolor_plus.quick_color_switch"
@@ -198,6 +319,7 @@ classes = (
     VCOLORPLUS_OT_vcolor_shading,
     VCOLORPLUS_OT_value_variation,
     VCOLORPLUS_OT_edit_color,
+    VCOLORPLUS_OT_custom_color_apply,
     VCOLORPLUS_OT_quick_color_switch
 )
 
