@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Panel
+from bpy.types import Panel, UIList
 from .preferences import VCOLORPLUS_PT_presets
 
 
@@ -65,11 +65,12 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
 
         col = layout.column(align=True)
-        row = col.row()
+        row = col.row(align=True)
         row.prop(vcolor_plus, 'smooth_hard_application', expand=True)
         
         if vcolor_plus.smooth_hard_application == 'hard':
             box = col.box()
+            box.scale_y = .8
             box.label(text='Only works with face selections', icon='INFO')
 
         layout.operator("vcolor_plus.get_active_color")
@@ -109,31 +110,47 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         row.prop(vcolor_plus, 'color_var_4')
         row.prop(vcolor_plus, 'color_var_5')
 
-        box = layout.box()
-        box.enabled = False
-        col = box.column(align=True)
 
-        split = col.split(align=True)
-        split.label(text='Alpha Apply')
-
-        row = col.row(align=True)
-        row.operator("vcolor_plus.value_variation", text='.2').variation_value = '.2'
-        row.operator("vcolor_plus.value_variation", text='.4').variation_value = '.4'
-        row.operator("vcolor_plus.value_variation", text='.6').variation_value = '.6'
-        row.operator("vcolor_plus.value_variation", text='.8').variation_value = '.8'
-        row.operator("vcolor_plus.value_variation", text='1').variation_value = '1'
-
-        row = col.row(align=True)
+class VCOLORPLUS_UL_items(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        row = layout.row()
+        row.scale_x = .35
         row.enabled = False
-        row.prop(vcolor_plus, 'color_alpha_1')
-        row.prop(vcolor_plus, 'color_alpha_2')
-        row.prop(vcolor_plus, 'color_alpha_3')
-        row.prop(vcolor_plus, 'color_alpha_4')
-        row.prop(vcolor_plus, 'color_alpha_5')
+        row.prop(item, 'color')
+
+        split = layout.split(factor=.075)
+        split.label(text="")
+        split.label(text=item.name)
 
 
-class VCOLORPLUS_PT_custom_palate(PanelInfo, Panel):
-    bl_label = 'Customizable Palate'
+class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
+    bl_label = 'Palette Outliner'
+    bl_parent_id = 'VCOLORPLUS_PT_ui'
+
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column()
+        col.operator("vcolor_plus.refresh_active_palette", text='Refresh Palette', icon='FILE_REFRESH')
+
+        row = layout.row()
+
+        col = row.column(align=True)
+        col.template_list("VCOLORPLUS_UL_items", "", context.object, "vcolor_plus_palette_coll", context.object, "vcolor_plus_custom_index", rows=4)
+        
+        if len(context.selected_objects) > 1:
+            box = col.box()
+            box.scale_y = .8
+            box.label(text = 'Only uses Active Object', icon='INFO')
+
+        col = row.column()
+        col.operator("vcolor_plus.select_outliner_color", icon='RESTRICT_SELECT_OFF', text="")
+        col.separator(factor=2)
+        col.operator("vcolor_plus.delete_outliner_color", icon='TRASH', text="")
+
+
+class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
+    bl_label = 'Customizable Palette'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
 
     def draw_header_preset(self, context):
@@ -147,7 +164,7 @@ class VCOLORPLUS_PT_custom_palate(PanelInfo, Panel):
         col = layout.column(align=True)
 
         row = col.row()
-        row.prop(vcolor_plus, 'custom_palate_apply_options', expand=True)
+        row.prop(vcolor_plus, 'custom_palette_apply_options', expand=True)
 
         col.separator()
 
@@ -245,15 +262,6 @@ class VCOLORPLUS_PT_custom_palate(PanelInfo, Panel):
         split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c20'
 
 
-class VCOLORPLUS_PT_active_palate(PanelInfo, Panel):
-    bl_label = '_Active Palate'
-    bl_parent_id = 'VCOLORPLUS_PT_ui'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-
-        
 class VCOLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
     bl_label = 'Bake to Vertex Color'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
@@ -336,13 +344,14 @@ class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
             row = layout.row()
 
             col = row.column()
-            col.template_list("MESH_UL_vcols", "vcols", context.object.data, "vertex_colors", context.object.data.vertex_colors, "active_index", rows=2)
+            col.template_list("MESH_UL_vcols", "vcols", context.object.data, "vertex_colors", context.object.data.vertex_colors, "active_index", rows=4)
 
             col = row.column(align=True)
             col.operator("mesh.vertex_color_add", icon='ADD', text="")
             col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
         except AttributeError:
             layout.label(text='No Active Object is selected', icon='ERROR')
+
 
 ################################################################################################################
 # REGISTRATION
@@ -352,8 +361,9 @@ class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
 classes = (
     VCOLORPLUS_PT_ui,
     VCOLORPLUS_PT_quick_apply,
-    VCOLORPLUS_PT_custom_palate,
-    #VCOLORPLUS_PT_active_palate,
+    VCOLORPLUS_PT_palette_outliner,
+    VCOLORPLUS_PT_custom_palette,
+    VCOLORPLUS_UL_items,
     VCOLORPLUS_PT_bake_to_vertex_color,
     VCOLORPLUS_PT_vcolor_sets
 )

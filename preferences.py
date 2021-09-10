@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty
+from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
 import colorsys
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
@@ -115,7 +115,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         )
     )
 
-    custom_palate_apply_options: EnumProperty(
+    custom_palette_apply_options: EnumProperty(
         items=(
             ('apply_to_sel', "Fill Selection", ""),
             ('apply_to_col', "Apply Active Color", "")
@@ -184,51 +184,6 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         name="",
         subtype='COLOR_GAMMA',
         default=[1, 1, 1],
-        min=0,
-        max=1
-    )
-
-    color_alpha_1: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[0, 0, 0, .2],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_alpha_2: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[0, 0, 0, .4],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_alpha_3: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[0, 0, 0, .6],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_alpha_4: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[0, 0, 0, .8],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_alpha_5: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[0, 0, 0, 1],
-        size=4,
         min=0,
         max=1
     )
@@ -414,6 +369,19 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     )
 
 
+class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
+    name: StringProperty()
+    obj_id: IntProperty()
+    color: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+
 ##################################
 # REGISTRATION
 ##################################
@@ -425,6 +393,7 @@ classes = (
     VCOLORPLUS_OT_add_preset,
     VCOLORPLUS_MT_addon_prefs,
     VCOLORPLUS_property_group,
+    VCOLORPLUS_collection_property
 )
 
 
@@ -433,11 +402,17 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.vcolor_plus = PointerProperty(type=VCOLORPLUS_property_group)
+    bpy.types.Object.vcolor_plus_palette_coll = CollectionProperty(type=VCOLORPLUS_collection_property)
+    bpy.types.Object.vcolor_plus_custom_index = IntProperty()
 
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
+
+    del bpy.types.Scene.vcolor_plus
+    del bpy.types.Object.vcolor_plus_palette_coll
+    del bpy.types.Object.vcolor_plus_custom_index
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####
