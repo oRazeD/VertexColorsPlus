@@ -1,4 +1,4 @@
-import bpy, rna_keymap_ui, colorsys
+import bpy, rna_keymap_ui, colorsys, bmesh
 from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
@@ -369,9 +369,28 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
 
 class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
+    def update_palette_color(self, context):
+        if (self.color[0], self.color[1], self.color[2], self.color[3]) != (self.saved_color[0], self.saved_color[1], self.saved_color[2], self.saved_color[3]):
+            bpy.ops.vcolor_plus.change_outliner_color(id=self.obj_id)
+
+            if (self.color[0], self.color[1], self.color[2], self.color[3]) != (1, 1, 1, 1) or (self.saved_color[0], self.saved_color[1], self.saved_color[2], self.saved_color[3]) != (1, 1, 1, 1):
+                bpy.ops.vcolor_plus.refresh_active_palette()
+
     name: StringProperty()
     obj_id: IntProperty()
+
     color: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, 1],
+        size=4,
+        min=0,
+        max=1,
+        update=update_palette_color,
+        description='Click to change the current color for this layer (WARNING: If the set color matches another color or is pure white it will be merged/removed!)'
+    )
+
+    saved_color: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
         default=[0, 0, 0, 1],
@@ -501,8 +520,8 @@ class VCOLORPLUS_addon_keymaps:
             col.label(text=name)
             col.separator()
             km = kc.keymaps[km_name]
-            VCOLORPLUS_addon_keymaps.get_hotkey_entry_item(name, kc, km, kmi_name,
-                                                           kmi_value, col)
+            VCOLORPLUS_addon_keymaps.get_hotkey_entry_item(name, kc, km,
+                                                           kmi_name, kmi_value, col)
 
 
 class TEMPLATE_OT_restore_hotkey(bpy.types.Operator):
@@ -565,12 +584,16 @@ def register():
 
     bpy.types.Scene.vcolor_plus = PointerProperty(type=VCOLORPLUS_property_group)
     bpy.types.Object.vcolor_plus_palette_coll = CollectionProperty(type=VCOLORPLUS_collection_property)
-    bpy.types.Object.vcolor_plus_custom_index = IntProperty()
+    bpy.types.Object.vcolor_plus_custom_index = IntProperty(name='R G B A values for the layer (Renaming does not work)')
 
     # Assign Keymaps
     VCOLORPLUS_addon_keymaps.new_keymap('Vertex Colors Pie', 'wm.call_menu_pie', 'VCOLORPLUS_MT_pie_menu',
-                                        'Mesh', 'EMPTY', 'WINDOW',
-                                        'C', 'PRESS', False, True, False)
+                                        'Mesh', 'EMPTY', 'WINDOW', 'C',
+                                        'PRESS', False, True, False)
+
+    VCOLORPLUS_addon_keymaps.new_keymap('Fill Selection', 'vcolor_plus.edit_color', None,
+                                        'Mesh', 'EMPTY', 'WINDOW', 'F',
+                                        'PRESS', True, True, False, 'NONE')
 
     VCOLORPLUS_addon_keymaps.register_keymaps()
 

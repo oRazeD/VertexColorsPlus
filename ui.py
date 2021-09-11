@@ -114,8 +114,7 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
 class VCOLORPLUS_UL_items(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row()
-        row.scale_x = .35
-        row.enabled = False
+        row.scale_x = 0.325
         row.prop(item, 'color')
 
         split = layout.split(factor=.075)
@@ -144,6 +143,11 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
             box.label(text = 'Only uses Active Object', icon='INFO')
 
         col = row.column()
+
+        try:
+            idx_check = context.object.vcolor_plus_palette_coll[context.object.vcolor_plus_custom_index]
+        except (IndexError, ValueError):
+            col.enabled = False
 
         if not len(context.object.vcolor_plus_palette_coll):
             col.enabled = False

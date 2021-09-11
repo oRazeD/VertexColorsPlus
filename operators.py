@@ -1,5 +1,6 @@
 
 import bpy, bmesh
+from bpy.props import IntProperty
 from bpy.types import Operator
 
 
@@ -40,7 +41,7 @@ class VCOLORPLUS_OT_value_variation(Operator):
 class VCOLORPLUS_OT_edit_color(Operator):
     """Edits the active vertex color set based on the selected operator"""
     bl_idname = "vcolor_plus.edit_color"
-    bl_label = ""
+    bl_label = "Fill Selection"
     bl_options = {'REGISTER', 'UNDO'}
 
     edit_type: bpy.props.EnumProperty(
@@ -353,7 +354,6 @@ class VCOLORPLUS_OT_refresh_active_palette(Operator):
                     vcolor_list.append(reconstructed_loop)
 
         # TODO Order palette outliner based on hue, and then value
-
         #vcolor_no_hue = [x for x in vcolor_list if x[0] == 0]
 
         #for vcolor in vcolor_no_hue:
@@ -363,9 +363,8 @@ class VCOLORPLUS_OT_refresh_active_palette(Operator):
             item = active_ob.vcolor_plus_palette_coll.add()
             item.obj_id = len(active_ob.vcolor_plus_palette_coll) - 1
             item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
+            item.saved_color = vcolor
             item.color = vcolor
-            item.prop_parent = active_ob.name
-            active_ob.vcolor_plus_custom_index = len(active_ob.vcolor_plus_palette_coll) - 1
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
@@ -494,6 +493,41 @@ class VCOLORPLUS_OT_convert_to_vgroup(Operator):
         return{'FINISHED'}
 
 
+class VCOLORPLUS_OT_change_outliner_color(Operator):
+    """Change the selected outliner color"""
+    bl_idname = "vcolor_plus.change_outliner_color"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    id: IntProperty()
+
+    def execute(self, context):
+        active_ob = context.object
+        active_palette = active_ob.vcolor_plus_palette_coll[self.id]
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        bm = bmesh.new()
+        bm.from_mesh(active_ob.data)
+
+        layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
+
+        for face in bm.faces:
+            for loop in face.loops:
+                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
+
+                if reconstructed_loop == [active_palette.saved_color[0], active_palette.saved_color[1], active_palette.saved_color[2], active_palette.saved_color[3]]:
+                    loop[layer] = [active_palette.color[0], active_palette.color[1], active_palette.color[2], active_palette.color[3]]
+
+        active_palette.name = f'({round(active_palette.color[0] * 255)}, {round(active_palette.color[1] * 255)}, {round(active_palette.color[2] * 255)}, {round(active_palette.color[3], 2)})'
+
+        bm.to_mesh(active_ob.data)
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
+        return{'FINISHED'}
+
+
 ################################################################################################################
 # REGISTRATION
 ################################################################################################################
@@ -509,7 +543,8 @@ classes = (
     VCOLORPLUS_OT_refresh_active_palette,
     VCOLORPLUS_OT_delete_outliner_color,
     VCOLORPLUS_OT_select_outliner_color,
-    VCOLORPLUS_OT_convert_to_vgroup
+    VCOLORPLUS_OT_convert_to_vgroup,
+    VCOLORPLUS_OT_change_outliner_color
 )
 
 
