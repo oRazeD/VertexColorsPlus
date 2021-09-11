@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Panel, UIList
+from bpy.types import Panel, UIList, Menu
 from .preferences import VCOLORPLUS_PT_presets
 
 
@@ -39,7 +39,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         
         split = col2.split()
         split.scale_y = 1.3
-        split.label(text='Active Color')
+        split.label(text=' Active Color')
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_wheel')
@@ -93,7 +93,7 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         col = box.column(align=True)
 
         split = col.split(align=True)
-        split.label(text='Value Variation')
+        split.label(text=' Value Variation')
 
         row = col.row(align=True)
         row.operator("vcolor_plus.value_variation", text='.2').variation_value = '.2'
@@ -144,9 +144,15 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
             box.label(text = 'Only uses Active Object', icon='INFO')
 
         col = row.column()
+
+        if not len(context.object.vcolor_plus_palette_coll):
+            col.enabled = False
+
         col.operator("vcolor_plus.select_outliner_color", icon='RESTRICT_SELECT_OFF', text="")
         col.separator(factor=2)
         col.operator("vcolor_plus.delete_outliner_color", icon='TRASH', text="")
+        col.separator(factor=2)
+        col.operator("vcolor_plus.convert_to_vgroup", icon='GROUP_VERTEX', text="")
 
 
 class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
@@ -331,26 +337,134 @@ class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
     def draw(self, context):
         layout = self.layout
 
-        col = layout.column(align=True)
-        col.enabled = False
-        col.scale_y = 1.3
-        col.operator("vcolor_plus.vcolor_shading_toggle", text='Convert VColor to VGroups')
+        row = layout.row()
 
-        row = col.row(align=True)
-        row.scale_y = .7
-        row.prop(context.scene.vcolor_plus, "vcolor_convert_options", expand=True)
+        col = row.column()
+        col.template_list("MESH_UL_vcols", "vcols", context.object.data, "vertex_colors", context.object.data.vertex_colors, "active_index", rows=4)
 
-        try:
-            row = layout.row()
+        col = row.column(align=True)
+        col.operator("mesh.vertex_color_add", icon='ADD', text="")
+        col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
 
-            col = row.column()
-            col.template_list("MESH_UL_vcols", "vcols", context.object.data, "vertex_colors", context.object.data.vertex_colors, "active_index", rows=4)
 
-            col = row.column(align=True)
-            col.operator("mesh.vertex_color_add", icon='ADD', text="")
-            col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
-        except AttributeError:
-            layout.label(text='No Active Object is selected', icon='ERROR')
+class VCOLORPLUS_MT_pie_menu(Menu):
+    bl_idname = "VCOLORPLUS_MT_pie_menu"
+    bl_label = "Vertex Colors Plus"
+
+    def draw(self, context):
+        layout = self.layout
+        pie = layout.menu_pie()
+
+        vcolor_plus = context.scene.vcolor_plus
+
+        #4 - LEFT
+        col = pie.column()
+
+        gap = col.column()
+
+        box = col.box().column(align=True)
+
+        box2 = box.box()
+        col2 = box2.column(align=True)
+        
+        split = col2.split(align=True)
+        split.scale_y = 1.3
+        split.label(text=' Active Color')
+
+        row = split.row(align=True)
+        row.prop(vcolor_plus, 'color_wheel')
+        row.operator("vcolor_plus.quick_color_switch", icon='LOOP_FORWARDS')
+
+        split = col2.split(factor=.65)
+        split.scale_y = 1.3
+        split.separator()
+        split.prop(vcolor_plus, 'alt_color_wheel')
+
+        split = col2.split()
+        split.separator()
+        split.prop(vcolor_plus, 'live_color_tweak')
+
+        col3 = box.column()
+
+        col3.separator(factor=.5)
+
+        split = col3.split(align=True)
+        split.scale_y = 1.25
+        split.label(text=' Blending')
+        split.prop(vcolor_plus, 'smooth_hard_application', expand=True)
+
+        col3.separator(factor=.5)
+
+        row = col3.row()
+        row.scale_y = 1.25
+        row.operator("vcolor_plus.get_active_color")
+        #6 - RIGHT
+        col = pie.column()
+
+        col.scale_x = .5
+
+        gap = col.column()
+
+        box = col.box().column(align=True)
+
+        col2 = box.column(align=True)   
+        col2.scale_y = 1.25
+
+        col2.operator("vcolor_plus.edit_color", text='Apply to All').edit_type = 'apply_all'
+        col2.operator("vcolor_plus.edit_color", text='Clear All').edit_type = 'clear_all'
+        col2.separator(factor=.5)
+
+        box = col2.box()
+        col = box.column(align=True)
+        col.label(text=' Value Variation')
+        
+        row = col.row(align=True) # Painfully inefficient execution but for some reason pies cut off random items elsewise
+        col3 = row.column(align=True)
+        col3.operator("vcolor_plus.value_variation", text='.2').variation_value = '.2'
+
+        col4 = col3.column(align=True)
+        col4.enabled = False
+        col4.prop(vcolor_plus, 'color_var_1')
+
+        col3 = row.column(align=True)
+        col3.operator("vcolor_plus.value_variation", text='.4').variation_value = '.4'
+
+        col4 = col3.column(align=True)
+        col4.enabled = False
+        col4.prop(vcolor_plus, 'color_var_2')
+
+        col3 = row.column(align=True)
+        col3.operator("vcolor_plus.value_variation", text='.6').variation_value = '.6'
+
+        col4 = col3.column(align=True)
+        col4.enabled = False
+        col4.prop(vcolor_plus, 'color_var_3')
+
+        col3 = row.column(align=True)
+        col3.operator("vcolor_plus.value_variation", text='.8').variation_value = '.8'
+
+        col4 = col3.column(align=True)
+        col4.enabled = False
+        col4.prop(vcolor_plus, 'color_var_4')
+
+        col3 = row.column(align=True)
+        col3.operator("vcolor_plus.value_variation", text='1').variation_value = '1'
+
+        col4 = col3.column(align=True)
+        col4.enabled = False
+        col4.prop(vcolor_plus, 'color_var_5')
+        #2 - BOTTOM
+        pie.operator("vcolor_plus.edit_color", text='Clear Selection', icon='PANEL_CLOSE').edit_type = 'clear'
+        #8 - TOP
+        pie.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK').edit_type = 'apply'
+        #7 - TOP - LEFT
+        pie.separator()
+        #9 - TOP - RIGHT
+        pie.separator()
+        # 1 - BOTTOM - LEFT
+        pie.separator()
+        # 3 - BOTTOM - RIGHT
+        pie.separator()
 
 
 ################################################################################################################
@@ -365,7 +479,8 @@ classes = (
     VCOLORPLUS_PT_custom_palette,
     VCOLORPLUS_UL_items,
     VCOLORPLUS_PT_bake_to_vertex_color,
-    VCOLORPLUS_PT_vcolor_sets
+    VCOLORPLUS_PT_vcolor_sets,
+    VCOLORPLUS_MT_pie_menu
 )
 
 

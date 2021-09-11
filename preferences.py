@@ -1,6 +1,5 @@
-import bpy
+import bpy, rna_keymap_ui, colorsys
 from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
-import colorsys
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
 from bpy.types import Panel, Menu
@@ -72,7 +71,7 @@ class VCOLORPLUS_MT_addon_prefs(bpy.types.AddonPreferences):
     def draw(self, context):
         layout=self.layout
 
-        layout.label(text='Keymaps TODO')
+        VCOLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, layout)
 
 
 ############################################################
@@ -383,6 +382,168 @@ class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
 
 
 ##################################
+# Keymapping
+##################################
+
+
+class VCOLORPLUS_addon_keymaps:
+    _addon_keymaps = []
+    _keymaps = {}
+
+    @classmethod
+    def new_keymap(cls, name, kmi_name, kmi_value=None, km_name='3D View',
+                   space_type="VIEW_3D", region_type="WINDOW",
+                   event_type=None, event_value=None, ctrl=False, shift=False,
+                   alt=False, key_modifier="NONE"):
+
+        cls._keymaps.update({name: [kmi_name, kmi_value, km_name, space_type,
+                                    region_type, event_type, event_value,
+                                    ctrl, shift, alt, key_modifier]
+                             })
+
+    @classmethod
+    def add_hotkey(cls, kc, keymap_name):
+
+        items = cls._keymaps.get(keymap_name)
+        if not items:
+            return
+
+        kmi_name, kmi_value, km_name, space_type, region_type = items[:5]
+        event_type, event_value, ctrl, shift, alt, key_modifier = items[5:]
+        km = kc.keymaps.new(name=km_name, space_type=space_type,
+                            region_type=region_type)
+
+        kmi = km.keymap_items.new(kmi_name, event_type, event_value,
+                                  ctrl=ctrl,
+                                  shift=shift, alt=alt,
+                                  key_modifier=key_modifier
+                                  )
+        if kmi_value:
+            kmi.properties.name = kmi_value
+
+        kmi.active = True
+
+        cls._addon_keymaps.append((km, kmi))
+
+    @staticmethod
+    def register_keymaps():
+        wm = bpy.context.window_manager
+        kc = wm.keyconfigs.addon
+        # In background mode, there's no such thing has keyconfigs.user,
+        # because headless mode doesn't need key combos.
+        # So, to avoid error message in background mode, we need to check if
+        # keyconfigs is loaded.
+        if not kc:
+            return
+
+        for keymap_name in VCOLORPLUS_addon_keymaps._keymaps.keys():
+            VCOLORPLUS_addon_keymaps.add_hotkey(kc, keymap_name)
+
+    @classmethod
+    def unregister_keymaps(cls):
+        kmi_values = [item[1] for item in cls._keymaps.values() if item]
+        kmi_names = [item[0] for item in cls._keymaps.values() if
+                     item not in ['wm.call_menu', 'wm.call_menu_pie']]
+
+        for km, kmi in cls._addon_keymaps:
+            # remove addon keymap for menu and pie menu
+            if hasattr(kmi.properties, 'name'):
+                if kmi_values:
+                    if kmi.properties.name in kmi_values:
+                        km.keymap_items.remove(kmi)
+
+            # remove addon_keymap for operators
+            else:
+                if kmi_names:
+                    if kmi.idname in kmi_names:
+                        km.keymap_items.remove(kmi)
+
+        cls._addon_keymaps.clear()
+
+    @staticmethod
+    def get_hotkey_entry_item(name, kc, km, kmi_name, kmi_value, col):
+
+        # for menus and pie_menu
+        if kmi_value:
+            for km_item in km.keymap_items:
+                if km_item.idname == kmi_name and km_item.properties.name == kmi_value:
+                    col.context_pointer_set('keymap', km)
+                    rna_keymap_ui.draw_kmi([], kc, km, km_item, col, 0)
+                    return
+
+            col.label(text=f"No hotkey entry found for {name}")
+            col.operator(TEMPLATE_OT_restore_hotkey.bl_idname,
+                         text="Restore keymap",
+                         icon='ADD').km_name = km.name
+
+        # for operators
+        else:
+            if km.keymap_items.get(kmi_name):
+                col.context_pointer_set('keymap', km)
+                rna_keymap_ui.draw_kmi([], kc, km, km.keymap_items[kmi_name],
+                                       col, 0)
+
+            else:
+                col.label(text=f"No hotkey entry found for {name}")
+                col.operator(TEMPLATE_OT_restore_hotkey.bl_idname,
+                             text="Restore keymap",
+                             icon='ADD').km_name = km.name
+
+    @staticmethod
+    def draw_keymap_items(wm, layout):
+        kc = wm.keyconfigs.user
+
+        for name, items in VCOLORPLUS_addon_keymaps._keymaps.items():
+            kmi_name, kmi_value, km_name = items[:3]
+            box = layout.box()
+            split = box.split()
+            col = split.column()
+            col.label(text=name)
+            col.separator()
+            km = kc.keymaps[km_name]
+            VCOLORPLUS_addon_keymaps.get_hotkey_entry_item(name, kc, km, kmi_name,
+                                                           kmi_value, col)
+
+
+class TEMPLATE_OT_restore_hotkey(bpy.types.Operator):
+    bl_idname = "template.restore_hotkey"
+    bl_label = "Restore hotkeys"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    km_name: StringProperty()
+
+    def execute(self, context):
+        context.preferences.active_section = 'KEYMAP'
+        wm = context.window_manager
+        kc = wm.keyconfigs.addon
+        km = kc.keymaps.get(self.km_name)
+        if km:
+            km.restore_to_default()
+            context.preferences.is_dirty = True
+        context.preferences.active_section = 'ADDONS'
+        return {'FINISHED'}
+
+
+class VCOLORPLUS_OT_add_hotkey(bpy.types.Operator):
+    bl_idname = "vcolor_plus.add_hotkey"
+    bl_label = "Add Hotkeys"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    km_name: StringProperty()
+
+    def execute(self, context):
+        context.preferences.active_section = 'KEYMAP'
+        wm = context.window_manager
+        kc = wm.keyconfigs.addon
+        km = kc.keymaps.get(self.km_name)
+        if km:
+            km.restore_to_default()
+            context.preferences.is_dirty = True
+        context.preferences.active_section = 'ADDONS'
+        return {'FINISHED'}
+
+
+##################################
 # REGISTRATION
 ##################################
 
@@ -393,7 +554,8 @@ classes = (
     VCOLORPLUS_OT_add_preset,
     VCOLORPLUS_MT_addon_prefs,
     VCOLORPLUS_property_group,
-    VCOLORPLUS_collection_property
+    VCOLORPLUS_collection_property,
+    VCOLORPLUS_OT_add_hotkey
 )
 
 
@@ -405,10 +567,19 @@ def register():
     bpy.types.Object.vcolor_plus_palette_coll = CollectionProperty(type=VCOLORPLUS_collection_property)
     bpy.types.Object.vcolor_plus_custom_index = IntProperty()
 
+    # Assign Keymaps
+    VCOLORPLUS_addon_keymaps.new_keymap('Vertex Colors Pie', 'wm.call_menu_pie', 'VCOLORPLUS_MT_pie_menu',
+                                        'Mesh', 'EMPTY', 'WINDOW',
+                                        'C', 'PRESS', False, True, False)
+
+    VCOLORPLUS_addon_keymaps.register_keymaps()
+
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
+
+    VCOLORPLUS_addon_keymaps.unregister_keymaps()
 
     del bpy.types.Scene.vcolor_plus
     del bpy.types.Object.vcolor_plus_palette_coll

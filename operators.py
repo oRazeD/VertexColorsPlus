@@ -188,8 +188,6 @@ class VCOLORPLUS_OT_get_active_color(Operator):
                         if loop.vert.select:
                             if loop.vert.select and loop.vert == active_selection:
                                 context.scene.vcolor_plus.color_wheel = loop[layer]
-                        
-                bm.to_mesh(context.object.data)
 
                 bpy.ops.object.mode_set(mode = saved_context_mode)
                 return {'FINISHED'}
@@ -313,7 +311,10 @@ class VCOLORPLUS_OT_quick_color_switch(Operator):
 
         vcolor_plus.live_color_tweak = saved_color_tweak
 
-        bpy.ops.vcolor_plus.refresh_active_palette()
+        if vcolor_plus.live_color_tweak:
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply')
+
+            bpy.ops.vcolor_plus.refresh_active_palette()
         return{'FINISHED'}
 
 
@@ -351,6 +352,8 @@ class VCOLORPLUS_OT_refresh_active_palette(Operator):
                 if reconstructed_loop not in vcolor_list and reconstructed_loop != [1,1,1,1]:
                     vcolor_list.append(reconstructed_loop)
 
+        # TODO Order palette outliner based on hue, and then value
+
         #vcolor_no_hue = [x for x in vcolor_list if x[0] == 0]
 
         #for vcolor in vcolor_no_hue:
@@ -364,8 +367,6 @@ class VCOLORPLUS_OT_refresh_active_palette(Operator):
             item.prop_parent = active_ob.name
             active_ob.vcolor_plus_custom_index = len(active_ob.vcolor_plus_palette_coll) - 1
 
-        bm.to_mesh(active_ob.data)
-
         bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
 
@@ -378,6 +379,7 @@ class VCOLORPLUS_OT_delete_outliner_color(Operator):
 
     def execute(self, context):
         active_ob = context.object
+        active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index]
         saved_context_mode = active_ob.mode
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -392,10 +394,10 @@ class VCOLORPLUS_OT_delete_outliner_color(Operator):
                 reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
 
                 reconstructed_palette_loop = [
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[0],
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[1],
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[2],
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[3],
+                    active_palette.color[0],
+                    active_palette.color[1],
+                    active_palette.color[2],
+                    active_palette.color[3]
                 ]
 
                 if reconstructed_loop == reconstructed_palette_loop:
@@ -417,6 +419,47 @@ class VCOLORPLUS_OT_select_outliner_color(Operator):
 
     def execute(self, context):
         active_ob = context.object
+        active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index]
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        bm = bmesh.new()
+        bm.from_mesh(active_ob.data)
+
+        layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
+        
+        context.tool_settings.mesh_select_mode = (True, False, False)
+
+        for face in bm.faces:
+            for loop in face.loops:
+                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
+
+                reconstructed_palette_loop = [
+                    active_palette.color[0],
+                    active_palette.color[1],
+                    active_palette.color[2],
+                    active_palette.color[3]
+                ]
+
+                if reconstructed_loop == reconstructed_palette_loop:
+                    loop.vert.select_set(True)
+
+        bm.to_mesh(active_ob.data)
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
+        return{'FINISHED'}
+
+
+class VCOLORPLUS_OT_convert_to_vgroup(Operator):
+    """Convert the active vertex color to a vertex group"""
+    bl_idname = "vcolor_plus.convert_to_vgroup"
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        active_ob = context.object
+        active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index]
         saved_context_mode = active_ob.mode
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -426,23 +469,26 @@ class VCOLORPLUS_OT_select_outliner_color(Operator):
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
-        bpy.context.tool_settings.mesh_select_mode = (True, False, False)
+        vertex_list = []
 
+        # Get vertices with the corresponding color value
         for face in bm.faces:
             for loop in face.loops:
-                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
+                if loop.vert.index not in vertex_list:
+                    reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
 
-                reconstructed_palette_loop = [
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[0],
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[1],
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[2],
-                    active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color[3],
-                ]
+                    reconstructed_palette_loop = [
+                        active_palette.color[0],
+                        active_palette.color[1],
+                        active_palette.color[2],
+                        active_palette.color[3]
+                    ]
 
-                if reconstructed_loop == reconstructed_palette_loop:
-                    loop.vert.select_set(True)
+                    if reconstructed_loop == reconstructed_palette_loop:
+                        vertex_list.append(loop.vert.index)
 
-        bm.to_mesh(active_ob.data)
+        converted_vgroup = active_ob.vertex_groups.new(name=active_palette.name)
+        converted_vgroup.add(vertex_list, 1.0, 'ADD')
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
         return{'FINISHED'}
@@ -462,7 +508,8 @@ classes = (
     VCOLORPLUS_OT_quick_color_switch,
     VCOLORPLUS_OT_refresh_active_palette,
     VCOLORPLUS_OT_delete_outliner_color,
-    VCOLORPLUS_OT_select_outliner_color
+    VCOLORPLUS_OT_select_outliner_color,
+    VCOLORPLUS_OT_convert_to_vgroup
 )
 
 
