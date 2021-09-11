@@ -130,7 +130,7 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         layout = self.layout
 
         col = layout.column()
-        col.operator("vcolor_plus.refresh_active_palette", text='Refresh Palette', icon='FILE_REFRESH')
+        col.operator("vcolor_plus.refresh_palette_outliner", text='Refresh Palette', icon='FILE_REFRESH')
 
         row = layout.row()
 
@@ -479,9 +479,9 @@ class VCOLORPLUS_MT_pie_menu(Menu):
 classes = (
     VCOLORPLUS_PT_ui,
     VCOLORPLUS_PT_quick_apply,
-    VCOLORPLUS_PT_palette_outliner,
-    VCOLORPLUS_PT_custom_palette,
     VCOLORPLUS_UL_items,
+    VCOLORPLUS_PT_palette_outliner,
+    VCOLORPLUS_PT_custom_palette,    
     VCOLORPLUS_PT_bake_to_vertex_color,
     VCOLORPLUS_PT_vcolor_sets,
     VCOLORPLUS_MT_pie_menu
