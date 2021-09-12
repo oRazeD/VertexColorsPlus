@@ -505,11 +505,7 @@ class VCOLORPLUS_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "vcolor_plus.color_custom_13",
         "vcolor_plus.color_custom_14",
         "vcolor_plus.color_custom_15",
-        "vcolor_plus.color_custom_16",
-        "vcolor_plus.color_custom_17",
-        "vcolor_plus.color_custom_18",
-        "vcolor_plus.color_custom_19",
-        "vcolor_plus.color_custom_20",
+        "vcolor_plus.color_custom_16"
     ]
 
     # Where to store the preset
