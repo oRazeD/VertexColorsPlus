@@ -1,6 +1,5 @@
 
 import bpy, bmesh, colorsys
-from bpy.props import IntProperty
 from bpy.types import Operator
 
 
@@ -14,11 +13,13 @@ class OpInfo: # Mix-in class
 
 
 class VCOLORPLUS_OT_vcolor_shading(OpInfo, Operator):
-    """Saves current shading settings and sets up optimal vertex color shading"""
-    bl_idname = "vcolor_plus.vcolor_shading_toggle"
-    bl_label = "VColor Shading Mode"
+    """Sets the current viewport shading to something more suitable for vertex painting (WARNING: This operation is destructive and won't save existing settings)"""
+    bl_idname = "vcolor_plus.vcolor_shading"
+    bl_label = "Apply VColor Shading"
 
     def execute(self, context):
+        context.space_data.shading.type = 'SOLID'
+        context.space_data.shading.color_type = 'VERTEX'
         return {'FINISHED'}
 
 
@@ -295,7 +296,7 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
     bl_label = ""
     bl_options = {'INTERNAL'}
 
-    id: IntProperty()
+    id: bpy.props.IntProperty()
 
     def execute(self, context):
         active_ob = context.object

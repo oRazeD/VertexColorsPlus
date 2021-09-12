@@ -33,10 +33,10 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         col = layout.column(align=True)
 
-        split = col.split(factor=.7, align=True)
+        split = col.split(factor=.6, align=True)
         split.scale_y = 1.3
         split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK').edit_type = 'apply'
-        split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
+        split.operator("vcolor_plus.edit_color", text='Clear Sel', icon='X').edit_type = 'clear'
 
         box = col.box()
 
@@ -62,8 +62,6 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.separator()
         split.prop(vcolor_plus, 'live_color_tweak')
 
-        #col2.separator(factor=.3)
-
         col = layout.column(align=True)
 
         split = col.split(factor=.3)
@@ -78,6 +76,8 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
             box.label(text='Only works with face selections', icon='INFO')
 
         layout.operator("vcolor_plus.get_active_color", icon='RESTRICT_COLOR_ON')
+
+        layout.operator("vcolor_plus.vcolor_shading", icon='SHADING_TEXTURE')
 
 
 class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
