@@ -1,4 +1,4 @@
-import bpy, rna_keymap_ui, colorsys, bmesh
+import bpy, rna_keymap_ui, colorsys
 from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
@@ -193,6 +193,9 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         self.color_var_4 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .8)
         self.color_var_5 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], 1)
 
+    def palette_update(self, context):
+        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        
     ### PROPERTIES ###
 
     live_color_tweak: BoolProperty(
@@ -210,15 +213,16 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     custom_palette_apply_options: EnumProperty(
         items=(
             ('apply_to_sel', "Fill Selection", ""),
-            ('apply_to_col', "Apply Active Color", "")
+            ('apply_to_col', "Set Active Color", "")
         )
     )
 
-    vcolor_convert_options: EnumProperty(
+    rgb_hsv_convert_options: EnumProperty(
         items=(
-            ('vgroup_per_color', "VGroup per Color", ""),
-            ('vgroup_to_rgba', "VColor to RGBA", "")
-        )
+            ('hsv', "HSV", ""),
+            ('rgb', "RGB", "")
+        ),
+        update=palette_update
     )
 
     color_wheel: FloatVectorProperty(
@@ -586,7 +590,7 @@ def register():
     bpy.types.Object.vcolor_plus_palette_coll = CollectionProperty(type=VCOLORPLUS_collection_property)
     bpy.types.Object.vcolor_plus_custom_index = IntProperty(name='R G B A values for the layer (Renaming does not work)')
 
-    # Assign Keymaps
+    # Assign keymaps & register
     VCOLORPLUS_addon_keymaps.new_keymap('Vertex Colors Pie', 'wm.call_menu_pie', 'VCOLORPLUS_MT_pie_menu',
                                         'Mesh', 'EMPTY', 'WINDOW', 'C',
                                         'PRESS', False, True, False)

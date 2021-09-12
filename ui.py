@@ -39,7 +39,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         
         split = col2.split()
         split.scale_y = 1.3
-        split.label(text=' Active Color')
+        split.label(text='Active Color', icon='COLOR')
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_wheel')
@@ -73,7 +73,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
             box.scale_y = .8
             box.label(text='Only works with face selections', icon='INFO')
 
-        layout.operator("vcolor_plus.get_active_color")
+        layout.operator("vcolor_plus.get_active_color", icon='RESTRICT_COLOR_ON')
 
 
 class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
@@ -117,7 +117,7 @@ class VCOLORPLUS_UL_items(UIList):
         row.scale_x = 0.325
         row.prop(item, 'color')
 
-        split = layout.split(factor=.075)
+        split = layout.split(factor=.025)
         split.label(text="")
         split.label(text=item.name)
 
@@ -128,6 +128,16 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
 
     def draw(self, context):
         layout = self.layout
+
+        disable_ui = False
+
+        try:
+            idx_check = context.object.vcolor_plus_palette_coll[context.object.vcolor_plus_custom_index]
+        except (IndexError, ValueError):
+            disable_ui = True
+
+        if not len(context.object.vcolor_plus_palette_coll):
+            disable_ui = True
 
         col = layout.column()
         col.operator("vcolor_plus.refresh_palette_outliner", text='Refresh Palette', icon='FILE_REFRESH')
@@ -142,20 +152,21 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
             box.scale_y = .8
             box.label(text = 'Only uses Active Object', icon='INFO')
 
+        row2 = col.row(align=True)
+        row2.enabled = not disable_ui
+        row2.prop(context.scene.vcolor_plus, 'rgb_hsv_convert_options', expand=True)
+
         col = row.column()
+        col.enabled = not disable_ui
 
-        try:
-            idx_check = context.object.vcolor_plus_palette_coll[context.object.vcolor_plus_custom_index]
-        except (IndexError, ValueError):
-            col.enabled = False
-
-        if not len(context.object.vcolor_plus_palette_coll):
-            col.enabled = False
-
+        col.operator("vcolor_plus.apply_outliner_color", icon='CHECKMARK', text="")
+        col.separator(factor = .49)
+        col.operator("vcolor_plus.get_active_outliner_color", icon='RESTRICT_COLOR_ON', text="")
+        col.separator(factor = .49)
         col.operator("vcolor_plus.select_outliner_color", icon='RESTRICT_SELECT_OFF', text="")
-        col.separator(factor=2)
+        col.separator(factor = .49)
         col.operator("vcolor_plus.delete_outliner_color", icon='TRASH', text="")
-        col.separator(factor=2)
+        col.separator(factor = .49)
         col.operator("vcolor_plus.convert_to_vgroup", icon='GROUP_VERTEX', text="")
 
 
@@ -364,8 +375,6 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         #4 - LEFT
         col = pie.column()
 
-        gap = col.column()
-
         box = col.box().column(align=True)
 
         box2 = box.box()
@@ -373,7 +382,7 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         
         split = col2.split(align=True)
         split.scale_y = 1.3
-        split.label(text=' Active Color')
+        split.label(text='Active Color', icon='COLOR')
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_wheel')
@@ -401,13 +410,11 @@ class VCOLORPLUS_MT_pie_menu(Menu):
 
         row = col3.row()
         row.scale_y = 1.25
-        row.operator("vcolor_plus.get_active_color")
+        row.operator("vcolor_plus.get_active_color", icon='RESTRICT_COLOR_ON')
         #6 - RIGHT
         col = pie.column()
 
         col.scale_x = .5
-
-        gap = col.column()
 
         box = col.box().column(align=True)
 
