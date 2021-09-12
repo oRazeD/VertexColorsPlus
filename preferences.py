@@ -314,7 +314,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_custom_4: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[1, 1, 1, 1],
+        default=[.75, .75, .75, 1],
         size=4,
         min=0,
         max=1
@@ -350,7 +350,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_custom_8: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.75, .75, .75, 1],
+        default=[.5, .5, .5, 1],
         size=4,
         min=0,
         max=1
@@ -386,7 +386,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     color_custom_12: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.5, .5, .5, 1],
+        default=[.25, .25, .25, 1],
         size=4,
         min=0,
         max=1
@@ -420,42 +420,6 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     )
 
     color_custom_16: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[.25, .25, .25, 1],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_custom_17: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[.1, .25, .1, 1],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_custom_18: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[.25, .1, .1, 1],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_custom_19: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[.1, .1, .25, 1],
-        size=4,
-        min=0,
-        max=1
-    )
-
-    color_custom_20: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
         default=[0, 0, 0, 1],

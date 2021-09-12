@@ -26,10 +26,10 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         layout = self.layout
 
-        row = layout.row()
-        row.scale_y = 1.5
-        row.enabled = False
-        row.operator("vcolor_plus.vcolor_shading_toggle", icon='VPAINT_HLT')
+        #row = layout.row()C
+        #row.scale_y = 1.5
+        #row.enabled = False
+        #row.operator("vcolor_plus.vcolor_shading_toggle", icon='VPAINT_HLT')
 
         col = layout.column(align=True)
 
@@ -262,25 +262,6 @@ class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_16')
         split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c16'
-
-        col = layout.column(align=True)
-
-        split = col.split(align=True)
-        row = split.row(align=True)
-        row.prop(vcolor_plus, 'color_custom_17')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c17'
-
-        row = split.row(align=True)
-        row.prop(vcolor_plus, 'color_custom_18')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c18'
-        
-        row = split.row(align=True)
-        row.prop(vcolor_plus, 'color_custom_19')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c19'
-
-        row = split.row(align=True)
-        row.prop(vcolor_plus, 'color_custom_20')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c20'
 
 
 class VCOLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):

@@ -106,14 +106,6 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
             rgb_value = vcolor_plus.color_custom_15
         elif self.variation_value == 'c16':
             rgb_value = vcolor_plus.color_custom_16
-        elif self.variation_value == 'c17':
-            rgb_value = vcolor_plus.color_custom_17
-        elif self.variation_value == 'c18':
-            rgb_value = vcolor_plus.color_custom_18
-        elif self.variation_value == 'c19':
-            rgb_value = vcolor_plus.color_custom_19
-        elif self.variation_value == 'c20':
-            rgb_value = vcolor_plus.color_custom_20
         else:
             rgb_value = vcolor_plus.color_wheel
 
@@ -493,11 +485,7 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
             ('c13', "Custom 13", ""),
             ('c14', "Custom 14", ""),
             ('c15', "Custom 15", ""),
-            ('c16', "Custom 16", ""),
-            ('c17', "Custom 17", ""),
-            ('c18', "Custom 18", ""),
-            ('c19', "Custom 19", ""),
-            ('c20', "Custom 20", ""),
+            ('c16', "Custom 16", "")
         ),
         options={'HIDDEN'}
     )
@@ -540,14 +528,6 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
                 vcolor_plus.color_wheel = vcolor_plus.color_custom_15
             elif self.custom_color_name == 'c16':
                 vcolor_plus.color_wheel = vcolor_plus.color_custom_16
-            elif self.custom_color_name == 'c17':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_17
-            elif self.custom_color_name == 'c18':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_18
-            elif self.custom_color_name == 'c19':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_19
-            elif self.custom_color_name == 'c20':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_20
 
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
