@@ -26,12 +26,17 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         layout = self.layout
 
-        #row = layout.row()C
+        #row = layout.row()
         #row.scale_y = 1.5
         #row.enabled = False
         #row.operator("vcolor_plus.vcolor_shading_toggle", icon='VPAINT_HLT')
 
         col = layout.column(align=True)
+
+        split = col.split(factor=.7, align=True)
+        split.scale_y = 1.3
+        split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK').edit_type = 'apply'
+        split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
 
         box = col.box()
 
@@ -57,15 +62,14 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.separator()
         split.prop(vcolor_plus, 'live_color_tweak')
 
-        col2.separator(factor=.3)
-                
-        split = col.split(factor=.7, align=True)
-        split.scale_y = 1.3
-        split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK').edit_type = 'apply'
-        split.operator("vcolor_plus.edit_color", text='Clear', icon='X').edit_type = 'clear'
+        #col2.separator(factor=.3)
 
         col = layout.column(align=True)
-        row = col.row(align=True)
+
+        split = col.split(factor=.3)
+        split.label(text=' Blending')
+
+        row = split.row()
         row.prop(vcolor_plus, 'smooth_hard_application', expand=True)
         
         if vcolor_plus.smooth_hard_application == 'hard':
@@ -86,8 +90,9 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         layout = self.layout
 
         col = layout.column(align=True)
-        col.operator("vcolor_plus.edit_color", text='Apply to All').edit_type = 'apply_all'
-        col.operator("vcolor_plus.edit_color", text='Clear All').edit_type = 'clear_all'
+        col.scale_y = 1.1
+        col.operator("vcolor_plus.edit_color", text='Apply to All', icon='CHECKMARK').edit_type = 'apply_all'
+        col.operator("vcolor_plus.edit_color", text='Clear All', icon='X').edit_type = 'clear_all'
 
         box = layout.box()
         col = box.column(align=True)
@@ -184,10 +189,10 @@ class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
 
         col = layout.column(align=True)
 
-        row = col.row()
+        row = col.row(align=True)
         row.prop(vcolor_plus, 'custom_palette_apply_options', expand=True)
 
-        col.separator()
+        col.separator(factor=.5)
 
         split = col.split(align=True)
         row = split.row(align=True)

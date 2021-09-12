@@ -278,11 +278,11 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
             item.saved_color = vcolor
             item.color = vcolor
 
-            vcolor_hsv = colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2])
-
             if context.scene.vcolor_plus.rgb_hsv_convert_options == 'rgb':
                 item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
             else:
+                vcolor_hsv = colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2])
+
                 item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
