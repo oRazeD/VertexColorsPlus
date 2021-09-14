@@ -83,9 +83,9 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
 
         bm.to_mesh(active_ob.data)
 
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
-
         bpy.ops.object.mode_set(mode = saved_context_mode)
+
+        bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -120,39 +120,35 @@ class VCOLORPLUS_OT_get_active_color(OpInfo, Operator):
 
     def execute(self, context):
         active_ob = context.object
-        saved_context_mode = active_ob.mode
 
         if not active_ob.data.vertex_colors:
             context.scene.vcolor_plus.color_wheel = (1, 1, 1, 1)
             return {'FINISHED'}
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        bm = bmesh.new()
-        bm.from_mesh(active_ob.data)
+        bm = bmesh.from_edit_mesh(active_ob.data)
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
+        # Search select_history for the active vertex
         try:
             active_selection = bm.select_history[-1]
-
-            if not isinstance(active_selection, bmesh.types.BMVert):
-                self.report({'ERROR'}, "There is more than one Active Vertex selected, please select only one active vertex")
-                bpy.ops.object.mode_set(mode = saved_context_mode)
-                return{'CANCELLED'}
-            else:
-                for face in bm.faces:
-                    for loop in face.loops:
-                        if loop.vert.select:
-                            if loop.vert == active_selection:
-                                context.scene.vcolor_plus.color_wheel = loop[layer]
-
-                bpy.ops.object.mode_set(mode = saved_context_mode)
-                return {'FINISHED'}
         except IndexError:
             self.report({'ERROR'}, "There is no Active Vertex selected")
-            bpy.ops.object.mode_set(mode = saved_context_mode)
             return{'CANCELLED'}
+
+        # Haven't actually tested what this is for, maybe instancing?
+        if not isinstance(active_selection, bmesh.types.BMVert):
+            self.report({'ERROR'}, "There is more than one Active Vertex selected, please select only one active vertex")
+            return{'CANCELLED'}
+
+        # Get active vertex's color
+        for face in bm.faces:
+            for loop in face.loops:
+                # TODO Make a list of the vert colors in this list, choose the first one that isn't pure white?
+
+                if loop.vert.select and loop.vert == active_selection:
+                    context.scene.vcolor_plus.color_wheel = loop[layer]
+        return {'FINISHED'}
 
 
 class VCOLORPLUS_OT_vcolor_shading(OpInfo, Operator):
@@ -190,19 +186,17 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
             self.report({'ERROR'}, "This object has no vertex colors")
             return{'CANCELLED'}
 
-        saved_context_mode = active_ob.mode
+        # Preserve the original index color value
+        if len(active_ob.vcolor_plus_palette_coll):
+            saved_color = convert_to_plain_array(array_object=active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color)
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        # Clear palette outliner list
+        active_ob.vcolor_plus_palette_coll.clear()
 
-        bm = bmesh.new()
-        bm.from_mesh(active_ob.data)
+        bm = bmesh.from_edit_mesh(active_ob.data)
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
-        # Clear VColor list
-        active_ob.vcolor_plus_palette_coll.clear()
-
-        # Create a new list
         vcolor_list = []
 
         for face in bm.faces:
@@ -229,7 +223,17 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
 
                 item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
 
-        bpy.ops.object.mode_set(mode = saved_context_mode)
+        # Reconfigure the active color palette based on previously saved color info
+        if active_ob.vcolor_plus_custom_index != 0:
+            active_ob.vcolor_plus_custom_index += -1
+
+        if 'saved_color' in locals():
+            for vcolor in active_ob.vcolor_plus_palette_coll:
+                converted_vcolor = convert_to_plain_array(array_object=vcolor.color)
+
+                if converted_vcolor == saved_color:
+                    active_ob.vcolor_plus_custom_index = vcolor.id
+                    break
         return {'FINISHED'}
 
 
@@ -244,12 +248,8 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
     def execute(self, context):
         active_ob = context.object
         active_palette = active_ob.vcolor_plus_palette_coll[self.id]
-        saved_context_mode = active_ob.mode
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        bm = bmesh.new()
-        bm.from_mesh(active_ob.data)
+        bm = bmesh.from_edit_mesh(active_ob.data)
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
@@ -265,9 +265,7 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
 
         active_palette.name = f'({round(palette_color[0] * 255)}, {round(palette_color[1] * 255)}, {round(palette_color[2] * 255)}, {round(palette_color[3], 2)})'
 
-        bm.to_mesh(active_ob.data)
-
-        bpy.ops.object.mode_set(mode = saved_context_mode)
+        bmesh.update_edit_mesh(active_ob.data)
         return {'FINISHED'}
 
 
@@ -312,6 +310,7 @@ class VCOLORPLUS_OT_select_outliner_color(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
+        # Object mode BMesh correct mesh update
         bm = bmesh.new()
         bm.from_mesh(active_ob.data)
 
@@ -342,12 +341,8 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
     def execute(self, context):
         active_ob = context.object
         active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index]
-        saved_context_mode = active_ob.mode
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        bm = bmesh.new()
-        bm.from_mesh(active_ob.data)
+        bm = bmesh.from_edit_mesh(active_ob.data)
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
@@ -360,11 +355,9 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
                 if reconstructed_loop == reconstructed_palette_loop:
                     loop[layer] = [1, 1, 1, 1]
 
-        bm.to_mesh(active_ob.data)
+        bmesh.update_edit_mesh(active_ob.data)
 
         bpy.ops.vcolor_plus.refresh_palette_outliner()
-
-        bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
 
 
@@ -380,6 +373,7 @@ class VCOLORPLUS_OT_convert_to_vgroup(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
+        # Object mode BMesh for vgroup add (only works in ob mode)
         bm = bmesh.new()
         bm.from_mesh(active_ob.data)
 
