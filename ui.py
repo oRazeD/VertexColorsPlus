@@ -26,16 +26,13 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         layout = self.layout
 
-        #row = layout.row()
-        #row.scale_y = 1.5
-        #row.enabled = False
-        #row.operator("vcolor_plus.vcolor_shading_toggle", icon='VPAINT_HLT')
-
         col = layout.column(align=True)
 
         split = col.split(factor=.6, align=True)
         split.scale_y = 1.3
-        split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK').edit_type = 'apply'
+        edit_color_op = split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK')
+        edit_color_op.edit_type = 'apply'
+        edit_color_op.variation_value = 'color_wheel'
         split.operator("vcolor_plus.edit_color", text='Clear Sel', icon='X').edit_type = 'clear'
 
         box = col.box()
@@ -91,7 +88,9 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
 
         col = layout.column(align=True)
         col.scale_y = 1.1
-        col.operator("vcolor_plus.edit_color", text='Apply to All', icon='CHECKMARK').edit_type = 'apply_all'
+        edit_color_op = col.operator("vcolor_plus.edit_color", text='Apply to All', icon='CHECKMARK')
+        edit_color_op.edit_type = 'apply_all'
+        edit_color_op.variation_value = 'color_wheel'
         col.operator("vcolor_plus.edit_color", text='Clear All', icon='X').edit_type = 'clear_all'
 
         box = layout.box()
@@ -101,11 +100,11 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         split.label(text=' Value Variation')
 
         row = col.row(align=True)
-        row.operator("vcolor_plus.value_variation", text='.2').variation_value = '.2'
-        row.operator("vcolor_plus.value_variation", text='.4').variation_value = '.4'
-        row.operator("vcolor_plus.value_variation", text='.6').variation_value = '.6'
-        row.operator("vcolor_plus.value_variation", text='.8').variation_value = '.8'
-        row.operator("vcolor_plus.value_variation", text='1').variation_value = '1'
+        row.operator("vcolor_plus.value_variation", text='.2').variation_value = 'color_var_1'
+        row.operator("vcolor_plus.value_variation", text='.4').variation_value = 'color_var_2'
+        row.operator("vcolor_plus.value_variation", text='.6').variation_value = 'color_var_3'
+        row.operator("vcolor_plus.value_variation", text='.8').variation_value = 'color_var_4'
+        row.operator("vcolor_plus.value_variation", text='1').variation_value = 'color_var_5'
 
         row = col.row(align=True)
         row.enabled = False
@@ -197,76 +196,76 @@ class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_1')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c1'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_1'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_2')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c2'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_2'
         
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_3')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c3'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_3'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_4')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c4'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_4'
 
         col = layout.column(align=True)
 
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_5')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c5'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_5'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_6')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c6'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_6'
         
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_7')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c7'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_7'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_8')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c8'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_8'
 
         col = layout.column(align=True)
 
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_9')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c9'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_9'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_10')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c10'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_10'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_11')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c11'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_11'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_12')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c12'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_12'
 
         col = layout.column(align=True)
 
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_13')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c13'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_13'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_14')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c14'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_14'
         
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_15')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c15'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_15'
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_custom_16')
-        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'c16'
+        split.operator("vcolor_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_16'
 
 
 class VCOLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
@@ -407,7 +406,9 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         col2 = box.column(align=True)   
         col2.scale_y = 1.25
 
-        col2.operator("vcolor_plus.edit_color", text='Apply to All').edit_type = 'apply_all'
+        edit_color_op = col2.operator("vcolor_plus.edit_color", text='Apply to All')
+        edit_color_op.edit_type = 'apply_all'
+        edit_color_op.variation_value = 'color_wheel'
         col2.operator("vcolor_plus.edit_color", text='Clear All').edit_type = 'clear_all'
         col2.separator(factor=.5)
 
@@ -417,35 +418,35 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         
         row = col.row(align=True) # Painfully inefficient execution but for some reason pies cut off random items elsewise
         col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.2').variation_value = '.2'
+        col3.operator("vcolor_plus.value_variation", text='.2').variation_value = 'color_var_1'
 
         col4 = col3.column(align=True)
         col4.enabled = False
         col4.prop(vcolor_plus, 'color_var_1')
 
         col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.4').variation_value = '.4'
+        col3.operator("vcolor_plus.value_variation", text='.4').variation_value = 'color_var_2'
 
         col4 = col3.column(align=True)
         col4.enabled = False
         col4.prop(vcolor_plus, 'color_var_2')
 
         col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.6').variation_value = '.6'
+        col3.operator("vcolor_plus.value_variation", text='.6').variation_value = 'color_var_3'
 
         col4 = col3.column(align=True)
         col4.enabled = False
         col4.prop(vcolor_plus, 'color_var_3')
 
         col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.8').variation_value = '.8'
+        col3.operator("vcolor_plus.value_variation", text='.8').variation_value = 'color_var_4'
 
         col4 = col3.column(align=True)
         col4.enabled = False
         col4.prop(vcolor_plus, 'color_var_4')
 
         col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='1').variation_value = '1'
+        col3.operator("vcolor_plus.value_variation", text='1').variation_value = 'color_var_5'
 
         col4 = col3.column(align=True)
         col4.enabled = False
@@ -453,7 +454,9 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         #2 - BOTTOM
         pie.operator("vcolor_plus.edit_color", text='Clear Selection', icon='PANEL_CLOSE').edit_type = 'clear'
         #8 - TOP
-        pie.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK').edit_type = 'apply'
+        edit_color_op = pie.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK')
+        edit_color_op.edit_type = 'apply'
+        edit_color_op.variation_value = 'color_wheel'
         #7 - TOP - LEFT
         pie.separator()
         #9 - TOP - RIGHT

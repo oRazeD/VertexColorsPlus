@@ -12,15 +12,9 @@ class OpInfo: # Mix-in class
     bl_options = {'REGISTER', 'UNDO'}
 
 
-class VCOLORPLUS_OT_vcolor_shading(OpInfo, Operator):
-    """Sets the current viewport shading to something more suitable for vertex painting (WARNING: This operation is destructive and won't save existing settings)"""
-    bl_idname = "vcolor_plus.vcolor_shading"
-    bl_label = "Apply VColor Shading"
-
-    def execute(self, context):
-        context.space_data.shading.type = 'SOLID'
-        context.space_data.shading.color_type = 'VERTEX'
-        return {'FINISHED'}
+def convert_to_plain_array(array_object):
+    converted_array = [array_object[0], array_object[1], array_object[2], array_object[3]]
+    return converted_array
 
 
 class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
@@ -38,19 +32,13 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         options={'HIDDEN'}
     )
 
-    variation_value: bpy.props.StringProperty(default='0', options={'HIDDEN'})
-
+    variation_value: bpy.props.StringProperty(options={'HIDDEN'})
+    
     def change_vcolor(self, context, layer, loop, rgb_value):
-        if self.edit_type == 'apply' and loop.vert.select:
+        if self.edit_type == 'apply' and loop.vert.select or self.edit_type == 'apply_all':
             loop[layer] = rgb_value
 
-        elif self.edit_type == 'apply_all':
-            loop[layer] = rgb_value
-
-        elif self.edit_type == 'clear' and loop.vert.select:
-            loop[layer] = [1,1,1,1]
-
-        elif self.edit_type == 'clear_all':
+        elif self.edit_type == 'clear' and loop.vert.select or self.edit_type == 'clear_all':
             loop[layer] = [1,1,1,1]
 
     def execute(self, context):
@@ -63,53 +51,18 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         bm = bmesh.new()
         bm.from_mesh(active_ob.data)
 
-        if self.variation_value == 'p1':
-            rgb_value = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color
-        elif self.variation_value == '.2':
-            rgb_value = (vcolor_plus.color_var_1[0], vcolor_plus.color_var_1[1], vcolor_plus.color_var_1[2], vcolor_plus.color_wheel[3])
-        elif self.variation_value == '.4':
-            rgb_value = (vcolor_plus.color_var_2[0], vcolor_plus.color_var_2[1], vcolor_plus.color_var_2[2], vcolor_plus.color_wheel[3])
-        elif self.variation_value == '.6':
-            rgb_value = (vcolor_plus.color_var_3[0], vcolor_plus.color_var_3[1], vcolor_plus.color_var_3[2], vcolor_plus.color_wheel[3])
-        elif self.variation_value == '.8':
-            rgb_value = (vcolor_plus.color_var_4[0], vcolor_plus.color_var_4[1], vcolor_plus.color_var_4[2], vcolor_plus.color_wheel[3])
-        elif self.variation_value == '1':
-            rgb_value = (vcolor_plus.color_var_5[0], vcolor_plus.color_var_5[1], vcolor_plus.color_var_5[2], vcolor_plus.color_wheel[3])
-        elif self.variation_value == 'c1':
-            rgb_value = vcolor_plus.color_custom_1
-        elif self.variation_value == 'c2':
-            rgb_value = vcolor_plus.color_custom_2
-        elif self.variation_value == 'c3':
-            rgb_value = vcolor_plus.color_custom_3
-        elif self.variation_value == 'c4':
-            rgb_value = vcolor_plus.color_custom_4
-        elif self.variation_value == 'c5':
-            rgb_value = vcolor_plus.color_custom_5
-        elif self.variation_value == 'c6':
-            rgb_value = vcolor_plus.color_custom_6
-        elif self.variation_value == 'c7':
-            rgb_value = vcolor_plus.color_custom_7
-        elif self.variation_value == 'c8':
-            rgb_value = vcolor_plus.color_custom_8
-        elif self.variation_value == 'c9':
-            rgb_value = vcolor_plus.color_custom_9
-        elif self.variation_value == 'c10':
-            rgb_value = vcolor_plus.color_custom_10
-        elif self.variation_value == 'c11':
-            rgb_value = vcolor_plus.color_custom_11
-        elif self.variation_value == 'c12':
-            rgb_value = vcolor_plus.color_custom_12
-        elif self.variation_value == 'c13':
-            rgb_value = vcolor_plus.color_custom_13
-        elif self.variation_value == 'c14':
-            rgb_value = vcolor_plus.color_custom_14
-        elif self.variation_value == 'c15':
-            rgb_value = vcolor_plus.color_custom_15
-        elif self.variation_value == 'c16':
-            rgb_value = vcolor_plus.color_custom_16
-        else:
-            rgb_value = vcolor_plus.color_wheel
+        # Get the RGB value based on the property string given
+        if self.variation_value:
+            if self.variation_value.startswith('color_var'):
+                variation_prop = getattr(vcolor_plus, self.variation_value)
 
+                rgb_value = (variation_prop[0], variation_prop[1], variation_prop[2], vcolor_plus.color_wheel[3])
+            else:
+                rgb_value = getattr(vcolor_plus, self.variation_value)
+        else:
+            rgb_value = [1,1,1,1]
+
+        # Generate a vertex color set if one doesn't already exist
         if not active_ob.data.vertex_colors:
             color_layer = bm.loops.layers.color.new("Col")
 
@@ -117,14 +70,16 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         else:
             layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
-        for face in bm.faces:
-            if vcolor_plus.smooth_hard_application == 'hard':
+        # Get application type (smooth/hard) and then apply to the corresponding geometry
+        if vcolor_plus.smooth_hard_application == 'hard':
+            for face in bm.faces:
                 if face.select:
                     for loop in face.loops:
                         self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
-            else:
+        else: # Smooth
+            for face in bm.faces:
                 for loop in face.loops:
-                        self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
+                    self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
 
         bm.to_mesh(active_ob.data)
 
@@ -145,19 +100,8 @@ class VCOLORPLUS_OT_quick_color_switch(OpInfo, Operator):
         saved_color_tweak = vcolor_plus.live_color_tweak
         vcolor_plus.live_color_tweak = False
 
-        saved_main_color = (
-            vcolor_plus.color_wheel[0],
-            vcolor_plus.color_wheel[1],
-            vcolor_plus.color_wheel[2],
-            vcolor_plus.color_wheel[3]
-        )
-
-        saved_alt_color = (
-            vcolor_plus.alt_color_wheel[0],
-            vcolor_plus.alt_color_wheel[1],
-            vcolor_plus.alt_color_wheel[2],
-            vcolor_plus.alt_color_wheel[3]
-        )
+        saved_main_color = convert_to_plain_array(array_object=vcolor_plus.color_wheel)
+        saved_alt_color = convert_to_plain_array(array_object=vcolor_plus.alt_color_wheel)
 
         vcolor_plus.color_wheel = saved_alt_color
         vcolor_plus.alt_color_wheel = saved_main_color
@@ -165,23 +109,22 @@ class VCOLORPLUS_OT_quick_color_switch(OpInfo, Operator):
         vcolor_plus.live_color_tweak = saved_color_tweak
 
         if vcolor_plus.live_color_tweak:
-            bpy.ops.vcolor_plus.edit_color(edit_type='apply')
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_wheel')
         return {'FINISHED'}
 
 
 class VCOLORPLUS_OT_get_active_color(OpInfo, Operator):
-    """Set the Active Color based on the selected vertex color on the mesh"""
+    """Set the Active Color based on the actively selected vertex color on the mesh"""
     bl_idname = "vcolor_plus.get_active_color"
     bl_label = "Color from Active Vertex"
 
     def execute(self, context):
         active_ob = context.object
+        saved_context_mode = active_ob.mode
 
         if not active_ob.data.vertex_colors:
             context.scene.vcolor_plus.color_wheel = (1, 1, 1, 1)
             return {'FINISHED'}
-
-        saved_context_mode = active_ob.mode
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
@@ -212,21 +155,23 @@ class VCOLORPLUS_OT_get_active_color(OpInfo, Operator):
             return{'CANCELLED'}
 
 
+class VCOLORPLUS_OT_vcolor_shading(OpInfo, Operator):
+    """Sets the current viewport shading to something more suitable for vertex painting (WARNING: This operation is destructive and won't save existing shading settings)"""
+    bl_idname = "vcolor_plus.vcolor_shading"
+    bl_label = "Apply VColor Shading"
+
+    def execute(self, context):
+        context.space_data.shading.type = 'SOLID'
+        context.space_data.shading.color_type = 'VERTEX'
+        return {'FINISHED'}
+
+
 class VCOLORPLUS_OT_value_variation(OpInfo, Operator):
-    """Applies value variation to the selection without needing to change the Active Color"""
+    """Applies value variation to the selection without the need to change the Active Color"""
     bl_idname = "vcolor_plus.value_variation"
     bl_label = ""
 
-    variation_value: bpy.props.EnumProperty(
-        items=(
-            ('.2', ".2", ""),
-            ('.4', ".4", ""),
-            ('.6', ".6", ""),
-            ('.8', ".8", ""),
-            ('1', "1", "")
-        ),
-        options={'HIDDEN'}
-    )
+    variation_value: bpy.props.StringProperty(options={'HIDDEN'})
 
     def execute(self, context):
         bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value=self.variation_value)
@@ -262,20 +207,18 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
 
         for face in bm.faces:
             for loop in face.loops:
-                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
+                reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                 if reconstructed_loop not in vcolor_list and reconstructed_loop != [1,1,1,1]:
                     vcolor_list.append(reconstructed_loop)
 
-        # TODO Order palette outliner based on hue, and then value
-        #vcolor_no_hue = [x for x in vcolor_list if x[0] == 0]
+        # TODO Order vcolor_list based on hue, and then value
+        #vcolor_list_hsv = [colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2]) for vcolor in vcolor_list]
 
-        #for vcolor in vcolor_no_hue:
-        #    vcolor_list.remove(vcolor)
-
+        # Generate palette outliner properties
         for vcolor in vcolor_list:
             item = active_ob.vcolor_plus_palette_coll.add()
-            item.obj_id = len(active_ob.vcolor_plus_palette_coll) - 1
+            item.id = len(active_ob.vcolor_plus_palette_coll) - 1
             item.saved_color = vcolor
             item.color = vcolor
 
@@ -310,14 +253,17 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
+        palette_saved_color = convert_to_plain_array(array_object=active_palette.saved_color)
+        palette_color = convert_to_plain_array(array_object=active_palette.color)
+
         for face in bm.faces:
             for loop in face.loops:
-                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
+                reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
-                if reconstructed_loop == [active_palette.saved_color[0], active_palette.saved_color[1], active_palette.saved_color[2], active_palette.saved_color[3]]:
-                    loop[layer] = [active_palette.color[0], active_palette.color[1], active_palette.color[2], active_palette.color[3]]
+                if reconstructed_loop == palette_saved_color:
+                    loop[layer] = palette_color
 
-        active_palette.name = f'({round(active_palette.color[0] * 255)}, {round(active_palette.color[1] * 255)}, {round(active_palette.color[2] * 255)}, {round(active_palette.color[3], 2)})'
+        active_palette.name = f'({round(palette_color[0] * 255)}, {round(palette_color[1] * 255)}, {round(palette_color[2] * 255)}, {round(palette_color[3], 2)})'
 
         bm.to_mesh(active_ob.data)
 
@@ -331,6 +277,10 @@ class VCOLORPLUS_OT_get_active_outliner_color(OpInfo, Operator):
     bl_label = "Set as Active Color"
 
     def execute(self, context):
+        active_ob = context.object
+        active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color
+
+        context.scene.vcolor_plus.color_wheel = active_palette
         return {'FINISHED'}
 
 
@@ -340,12 +290,18 @@ class VCOLORPLUS_OT_apply_outliner_color(OpInfo, Operator):
     bl_label = "Apply Outliner Color"
 
     def execute(self, context):
-        bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='p1')
+        active_ob = context.object
+        active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color
+
+        # Set the temporary property
+        context.scene.vcolor_plus.overlay_color_placeholder = active_palette
+
+        bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='overlay_color_placeholder')
         return {'FINISHED'}
 
 
 class VCOLORPLUS_OT_select_outliner_color(OpInfo, Operator):
-    """Select vertices from the Active Color (DOES NOT REMOVE EXISTING SELECTIONS)"""
+    """Select vertices based on the Outliner Color (WARNING: This does not remove your existing selection)"""
     bl_idname = "vcolor_plus.select_outliner_color"
     bl_label = "Select Geometry from Outliner Color"
 
@@ -363,16 +319,11 @@ class VCOLORPLUS_OT_select_outliner_color(OpInfo, Operator):
         
         context.tool_settings.mesh_select_mode = (True, False, False)
 
+        reconstructed_palette_loop = convert_to_plain_array(array_object=active_palette.color)
+
         for face in bm.faces:
             for loop in face.loops:
-                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
-
-                reconstructed_palette_loop = [
-                    active_palette.color[0],
-                    active_palette.color[1],
-                    active_palette.color[2],
-                    active_palette.color[3]
-                ]
+                reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                 if reconstructed_loop == reconstructed_palette_loop:
                     loop.vert.select_set(True)
@@ -384,7 +335,7 @@ class VCOLORPLUS_OT_select_outliner_color(OpInfo, Operator):
 
 
 class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
-    """Remove the Outliner Color from the Palette Outliner and geomety"""
+    """Remove the Outliner Color from the Palette Outliner and geometry"""
     bl_idname = "vcolor_plus.delete_outliner_color"
     bl_label = "Delete Outliner Color"
 
@@ -400,16 +351,11 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
 
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
+        reconstructed_palette_loop = convert_to_plain_array(array_object=active_palette.color)
+
         for face in bm.faces:
             for loop in face.loops:
-                reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
-
-                reconstructed_palette_loop = [
-                    active_palette.color[0],
-                    active_palette.color[1],
-                    active_palette.color[2],
-                    active_palette.color[3]
-                ]
+                reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                 if reconstructed_loop == reconstructed_palette_loop:
                     loop[layer] = [1, 1, 1, 1]
@@ -441,18 +387,13 @@ class VCOLORPLUS_OT_convert_to_vgroup(OpInfo, Operator):
 
         vertex_list = []
 
+        reconstructed_palette_loop = convert_to_plain_array(array_object=active_palette.color)
+
         # Get vertices with the corresponding color value
         for face in bm.faces:
             for loop in face.loops:
                 if loop.vert.index not in vertex_list:
-                    reconstructed_loop = [loop[layer][0], loop[layer][1], loop[layer][2], loop[layer][3]]
-
-                    reconstructed_palette_loop = [
-                        active_palette.color[0],
-                        active_palette.color[1],
-                        active_palette.color[2],
-                        active_palette.color[3]
-                    ]
+                    reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                     if reconstructed_loop == reconstructed_palette_loop:
                         vertex_list.append(loop.vert.index)
@@ -465,31 +406,11 @@ class VCOLORPLUS_OT_convert_to_vgroup(OpInfo, Operator):
 
 
 class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
-    """Apply the color to your current selection or to your Active Color"""
+    """Apply the color to your current selection/Active Color"""
     bl_idname = "vcolor_plus.custom_color_apply"
     bl_label = ""
 
-    custom_color_name: bpy.props.EnumProperty(
-        items=(
-            ('c1', "Custom 1", ""),
-            ('c2', "Custom 2", ""),
-            ('c3', "Custom 3", ""),
-            ('c4', "Custom 4", ""),
-            ('c5', "Custom 5", ""),
-            ('c6', "Custom 6", ""),
-            ('c7', "Custom 7", ""),
-            ('c8', "Custom 8", ""),
-            ('c9', "Custom 9", ""),
-            ('c10', "Custom 10", ""),
-            ('c11', "Custom 11", ""),
-            ('c12', "Custom 12", ""),
-            ('c13', "Custom 13", ""),
-            ('c14', "Custom 14", ""),
-            ('c15', "Custom 15", ""),
-            ('c16', "Custom 16", "")
-        ),
-        options={'HIDDEN'}
-    )
+    custom_color_name: bpy.props.StringProperty(options={'HIDDEN'})
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -497,38 +418,7 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
         if vcolor_plus.custom_palette_apply_options == 'apply_to_sel':
             bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value=self.custom_color_name)
         else: # Apply to Active Color
-            if self.custom_color_name == 'c1':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_1
-            elif self.custom_color_name == 'c2':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_2
-            elif self.custom_color_name == 'c3':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_3
-            elif self.custom_color_name == 'c4':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_4
-            elif self.custom_color_name == 'c5':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_5
-            elif self.custom_color_name == 'c6':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_6
-            elif self.custom_color_name == 'c7':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_7
-            elif self.custom_color_name == 'c8':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_8
-            elif self.custom_color_name == 'c9':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_9
-            elif self.custom_color_name == 'c10':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_10
-            elif self.custom_color_name == 'c11':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_11
-            elif self.custom_color_name == 'c12':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_12
-            elif self.custom_color_name == 'c13':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_13
-            elif self.custom_color_name == 'c14':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_14
-            elif self.custom_color_name == 'c15':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_15
-            elif self.custom_color_name == 'c16':
-                vcolor_plus.color_wheel = vcolor_plus.color_custom_16
+            vcolor_plus.color_wheel = getattr(vcolor_plus, self.custom_color_name)
 
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
@@ -540,10 +430,10 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
 
 
 classes = (
-    VCOLORPLUS_OT_vcolor_shading,
     VCOLORPLUS_OT_edit_color,
     VCOLORPLUS_OT_quick_color_switch,
     VCOLORPLUS_OT_get_active_color,
+    VCOLORPLUS_OT_vcolor_shading,
     VCOLORPLUS_OT_value_variation,
     VCOLORPLUS_OT_refresh_palette_outliner,
     VCOLORPLUS_OT_change_outliner_color,

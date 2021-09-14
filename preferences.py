@@ -178,7 +178,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     def update_color_wheel(self, context):
         # Update selected vertices if live color tweak is on
         if self.live_color_tweak:
-            bpy.ops.vcolor_plus.edit_color(edit_type='apply')
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_wheel')
 
         # Update draw brush in vertex color mode
         bpy.data.brushes["Draw"].color = (self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
@@ -239,6 +239,15 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         name="",
         subtype='COLOR_GAMMA',
         default=[0, 0, 0, 1],
+        size=4,
+        min=0,
+        max=1
+    )
+
+    overlay_color_placeholder: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, 0],
         size=4,
         min=0,
         max=1
@@ -432,13 +441,12 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
     def update_palette_color(self, context):
         if (self.color[0], self.color[1], self.color[2], self.color[3]) != (self.saved_color[0], self.saved_color[1], self.saved_color[2], self.saved_color[3]):
-            bpy.ops.vcolor_plus.change_outliner_color(id=self.obj_id)
+            bpy.ops.vcolor_plus.change_outliner_color(id=self.id)
 
             if (self.color[0], self.color[1], self.color[2], self.color[3]) != (1, 1, 1, 1) or (self.saved_color[0], self.saved_color[1], self.saved_color[2], self.saved_color[3]) != (1, 1, 1, 1):
                 bpy.ops.vcolor_plus.refresh_palette_outliner()
 
-    name: StringProperty()
-    obj_id: IntProperty()
+    id: IntProperty()
 
     color: FloatVectorProperty(
         name="",
