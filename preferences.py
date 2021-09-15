@@ -225,6 +225,16 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         update=palette_update
     )
 
+    generation_type: EnumProperty(
+        items=(
+            ('per_uv_shell', "Per UV Shell", ""),
+#            ('per_uv_border', "Per UV Border", ""),
+#            ('per_face', "Per Face", ""),
+#            ('per_vertex', "Per Vertex", ""),
+        ),
+        name='Generation Type'
+    )
+
     color_wheel: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',

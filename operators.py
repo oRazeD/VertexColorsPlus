@@ -1,6 +1,7 @@
 
-import bpy, bmesh, colorsys
+import bpy, bmesh, colorsys, bpy_extras
 from bpy.types import Operator
+from random import random
 
 
 ################################################################################################################
@@ -12,9 +13,21 @@ class OpInfo: # Mix-in class
     bl_options = {'REGISTER', 'UNDO'}
 
 
+# Convert custom datatypes to plain 4-size arrays
 def convert_to_plain_array(array_object):
     converted_array = [array_object[0], array_object[1], array_object[2], array_object[3]]
     return converted_array
+
+
+# Get VColor Set/Layer or generate one if it doesn't already exist
+def find_or_create_vcolor_set(bm, active_ob):
+    if not active_ob.data.vertex_colors:
+        color_layer = bm.loops.layers.color.new("Col")
+
+        layer = bm.loops.layers.color[color_layer.name]
+    else:
+        layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
+    return layer
 
 
 class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
@@ -62,13 +75,7 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         else:
             rgb_value = [1,1,1,1]
 
-        # Generate a vertex color set if one doesn't already exist
-        if not active_ob.data.vertex_colors:
-            color_layer = bm.loops.layers.color.new("Col")
-
-            layer = bm.loops.layers.color[color_layer.name]
-        else:
-            layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
+        layer = find_or_create_vcolor_set(bm, active_ob)
 
         # Get application type (smooth/hard) and then apply to the corresponding geometry
         if vcolor_plus.smooth_hard_application == 'hard':
@@ -182,20 +189,16 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
     def execute(self, context):
         active_ob = context.object
 
-        if not active_ob.data.vertex_colors:
-            self.report({'ERROR'}, "This object has no vertex colors")
-            return{'CANCELLED'}
-
-        # Preserve the original index color value
-        if len(active_ob.vcolor_plus_palette_coll):
-            saved_color = convert_to_plain_array(array_object=active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color)
-
         # Clear palette outliner list
         active_ob.vcolor_plus_palette_coll.clear()
 
         bm = bmesh.from_edit_mesh(active_ob.data)
 
-        layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
+        layer = find_or_create_vcolor_set(bm, active_ob)
+
+        # Preserve the original index color value
+        if len(active_ob.vcolor_plus_palette_coll):
+            saved_color = convert_to_plain_array(array_object=active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index].color)
 
         vcolor_list = []
 
@@ -417,6 +420,108 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
+    
+class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
+    """"""
+    bl_idname = "vcolor_plus.generate_vcolor"
+    bl_label = ""
+
+    def execute(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+        active_ob = context.object
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        uv_islands = bpy_extras.mesh_utils.mesh_linked_uv_islands(active_ob.data)
+
+        bm = bmesh.new()
+        bm.from_mesh(active_ob.data)
+        bm.faces.ensure_lookup_table()
+
+        layer = find_or_create_vcolor_set(bm, active_ob)
+
+        if vcolor_plus.generation_type == 'per_uv_shell':
+            for island in uv_islands:
+                random_color = [random(), random(), random(), 1]
+                for face_index in island:
+                    face = bm.faces[face_index]
+
+                    for loop in face.loops:
+                        loop[layer] = random_color
+
+        #elif vcolor_plus.generation_type == 'per_uv_border':
+        #    print(get_island_boundary_edges(bm))
+
+        bm.to_mesh(active_ob.data)
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
+
+        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        return {'FINISHED'}
+
+
+class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
+    """Apply a VColor to the border or bounds of your current selection"""
+    bl_idname = "vcolor_plus.apply_color_to_border"
+    bl_label = "Apply to Selection Border"
+
+    border_type: bpy.props.EnumProperty(
+        items=(
+            ('inner', "Inner", ""),
+            ('outer', "Outer", "")
+        )
+    )
+
+    def execute(self, context):
+        active_ob = context.object
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        bm = bmesh.new()
+        bm.from_mesh(active_ob.data)
+
+        layer = find_or_create_vcolor_set(bm, active_ob)
+
+        # Get border vertices
+        border_vertices = [list(edge.verts) for edge in bm.edges if edge.link_faces[0].select != edge.link_faces[1].select]
+        #                  ^^ can also use [*edge.verts] for unpacking every item into an iterable
+
+        border_vertices_no_dups = []
+
+        for vertices in border_vertices:
+            for vert in vertices:
+                if vert not in border_vertices_no_dups:
+                    border_vertices_no_dups.append(vert.index)
+
+        # Get linked faces
+        linked_faces = []
+
+        for edge in bm.edges:
+            if edge.select:
+                linked_faces.extend([edge.link_faces[0], edge.link_faces[1]])
+
+        # Search linked faces for loops on the correct sides of the vertices
+        if self.border_type == 'inner':
+            for face in linked_faces:
+                if face.select:
+                    for loop in face.loops:
+                        if loop.vert.index in border_vertices_no_dups:
+                            loop[layer] = context.scene.vcolor_plus.color_wheel
+        else:
+            for face in linked_faces:
+                if not face.select:
+                    for loop in face.loops:
+                        if loop.vert.index in border_vertices_no_dups:
+                            loop[layer] = context.scene.vcolor_plus.color_wheel
+
+        bm.to_mesh(active_ob.data)
+        bpy.ops.object.mode_set(mode = saved_context_mode)
+
+        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        return {'FINISHED'}
+
 
 ################################################################################################################
 # REGISTRATION
@@ -436,7 +541,9 @@ classes = (
     VCOLORPLUS_OT_select_outliner_color,
     VCOLORPLUS_OT_delete_outliner_color,
     VCOLORPLUS_OT_convert_to_vgroup,
-    VCOLORPLUS_OT_custom_color_apply
+    VCOLORPLUS_OT_custom_color_apply,
+    VCOLORPLUS_OT_generate_vcolor,
+    VCOLORPLUS_OT_apply_color_to_border
 )
 
 

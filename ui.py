@@ -95,9 +95,15 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
 
         box = layout.box()
         col = box.column(align=True)
+        col.label(text=' Apply to Selection Border')
 
-        split = col.split(align=True)
-        split.label(text=' Value Variation')
+        row = col.row(align=True)
+        row.operator('vcolor_plus.apply_color_to_border', text='Inner', icon='CLIPUV_HLT').border_type = 'inner'
+        row.operator('vcolor_plus.apply_color_to_border', text='Outer', icon='CLIPUV_DEHLT').border_type = 'outer'
+
+        box = layout.box()
+        col = box.column(align=True)
+        col.label(text=' Value Variation')
 
         row = col.row(align=True)
         row.operator("vcolor_plus.value_variation", text='.2').variation_value = 'color_var_1'
@@ -113,6 +119,8 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         row.prop(vcolor_plus, 'color_var_3')
         row.prop(vcolor_plus, 'color_var_4')
         row.prop(vcolor_plus, 'color_var_5')
+
+
 
 
 class VCOLORPLUS_UL_items(UIList):
@@ -347,6 +355,25 @@ class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
         col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
 
 
+class VCOLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
+    bl_label = 'Generate Vertex Color'
+    bl_parent_id = 'VCOLORPLUS_PT_ui'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+
+        layout = self.layout
+
+        col = layout.column(align=True)
+        col.scale_y = 1.3
+        col.operator('vcolor_plus.generate_vcolor', text='Generate VColor', icon='GROUP_VCOL')
+
+        row = col.row(align=True)
+        row.scale_y = .8
+        row.prop(vcolor_plus, 'generation_type', text='')
+
+
 class VCOLORPLUS_MT_pie_menu(Menu):
     bl_idname = "VCOLORPLUS_MT_pie_menu"
     bl_label = "Vertex Colors Plus"
@@ -477,7 +504,8 @@ classes = (
     VCOLORPLUS_PT_quick_apply,
     VCOLORPLUS_UL_items,
     VCOLORPLUS_PT_palette_outliner,
-    VCOLORPLUS_PT_custom_palette,    
+    VCOLORPLUS_PT_custom_palette,
+    VCOLORPLUS_PT_vcolor_generation,
     VCOLORPLUS_PT_bake_to_vertex_color,
     VCOLORPLUS_PT_vcolor_sets,
     VCOLORPLUS_MT_pie_menu
