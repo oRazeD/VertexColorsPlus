@@ -61,13 +61,13 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         col = layout.column(align=True)
 
-        split = col.split(factor=.3)
-        split.label(text=' Blending')
+        split = col.split(factor=.4)
+        split.label(text=' Interpolation')
 
         row = split.row()
-        row.prop(vcolor_plus, 'smooth_hard_application', expand=True)
+        row.prop(vcolor_plus, 'interpolation_type', expand=True)
         
-        if vcolor_plus.smooth_hard_application == 'hard':
+        if vcolor_plus.interpolation_type == 'hard':
             box = col.box()
             box.scale_y = .8
             box.label(text='Only works with face selections', icon='INFO')
@@ -103,7 +103,7 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
 
         box = layout.box()
         col = box.column(align=True)
-        col.label(text=' Value Variation')
+        col.label(text=' Apply Value Variation')
 
         row = col.row(align=True)
         row.operator("vcolor_plus.value_variation", text='.2').variation_value = 'color_var_1'
@@ -119,8 +119,6 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         row.prop(vcolor_plus, 'color_var_3')
         row.prop(vcolor_plus, 'color_var_4')
         row.prop(vcolor_plus, 'color_var_5')
-
-
 
 
 class VCOLORPLUS_UL_items(UIList):
@@ -186,15 +184,23 @@ class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
     bl_label = 'Customizable Palette'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
 
-    def draw_header_preset(self, context):
-        VCOLORPLUS_PT_presets.draw_panel_header(self.layout)
-
     def draw(self, context):
         vcolor_plus = context.scene.vcolor_plus
 
         layout = self.layout
 
         col = layout.column(align=True)
+
+        VCOLORPLUS_PT_presets.draw_menu(col, text='Custom Palette Presets')
+
+        row = col.row(align=True)
+        row.enabled = False
+        row.operator("vcolor_plus.vcolor_shading", text='Import', icon='IMPORT')
+        row.operator("vcolor_plus.vcolor_shading", text='Export', icon='EXPORT')
+
+        col = layout.column(align=True)
+
+        col.separator(factor=.5)
 
         row = col.row(align=True)
         row.prop(vcolor_plus, 'custom_palette_apply_options', expand=True)
@@ -373,6 +379,14 @@ class VCOLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
         row.scale_y = .8
         row.prop(vcolor_plus, 'generation_type', text='')
 
+        if vcolor_plus.generation_type =='per_uv_border':
+            col.separator()
+
+            row = col.row()
+            row.enabled = False
+            row.scale_y = .8
+            row.prop(vcolor_plus, 'generation_per_uv_border_options', expand=True)
+
 
 class VCOLORPLUS_MT_pie_menu(Menu):
     bl_idname = "VCOLORPLUS_MT_pie_menu"
@@ -387,6 +401,9 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         #4 - LEFT
         col = pie.column()
 
+        col.scale_x = .8
+        col.separator(factor=12)
+
         box = col.box().column(align=True)
 
         box2 = box.box()
@@ -398,12 +415,7 @@ class VCOLORPLUS_MT_pie_menu(Menu):
 
         row = split.row(align=True)
         row.prop(vcolor_plus, 'color_wheel')
-        row.operator("vcolor_plus.quick_color_switch", icon='LOOP_FORWARDS')
-
-        split = col2.split(factor=.65)
-        split.scale_y = 1.3
-        split.separator()
-        split.prop(vcolor_plus, 'alt_color_wheel')
+        row.prop(vcolor_plus, 'alt_color_wheel')
 
         split = col2.split()
         split.separator()
@@ -415,33 +427,44 @@ class VCOLORPLUS_MT_pie_menu(Menu):
 
         split = col3.split(align=True)
         split.scale_y = 1.25
-        split.label(text=' Blending')
-        split.prop(vcolor_plus, 'smooth_hard_application', expand=True)
+        split.label(text=' Interpolation')
+        split.prop(vcolor_plus, 'interpolation_type', expand=True)
 
         col3.separator(factor=.5)
 
-        row = col3.row()
-        row.scale_y = 1.25
-        row.operator("vcolor_plus.get_active_color", icon='RESTRICT_COLOR_ON')
+        col3 = box.column()
+        col3.scale_y = 1.25
+        col3.operator("vcolor_plus.get_active_color", icon='RESTRICT_COLOR_ON')
+        col3.operator("vcolor_plus.vcolor_shading", icon='SHADING_TEXTURE')
         #6 - RIGHT
         col = pie.column()
 
-        col.scale_x = .5
+        col.scale_x = .475
+        col.separator(factor=12)
 
         box = col.box().column(align=True)
 
-        col2 = box.column(align=True)   
-        col2.scale_y = 1.25
+        col = box.column()
 
-        edit_color_op = col2.operator("vcolor_plus.edit_color", text='Apply to All')
+        row = col.row(align=True)   
+        row.scale_y = 1.25
+
+        edit_color_op = row.operator("vcolor_plus.edit_color", text='Apply to All', icon='CHECKMARK')
         edit_color_op.edit_type = 'apply_all'
         edit_color_op.variation_value = 'color_wheel'
-        col2.operator("vcolor_plus.edit_color", text='Clear All').edit_type = 'clear_all'
-        col2.separator(factor=.5)
+        row.operator("vcolor_plus.edit_color", text='Clear All', icon='PANEL_CLOSE').edit_type = 'clear_all'
 
-        box = col2.box()
-        col = box.column(align=True)
-        col.label(text=' Value Variation')
+        box = col.box()
+        col2 = box.column(align=True)
+        col2.label(text=' Apply to Selection Border')
+
+        row = col2.row(align=True)
+        row.operator('vcolor_plus.apply_color_to_border', text='Inner', icon='CLIPUV_HLT').border_type = 'inner'
+        row.operator('vcolor_plus.apply_color_to_border', text='Outer', icon='CLIPUV_DEHLT').border_type = 'outer'
+
+        box2 = col.box()
+        col = box2.column(align=True)
+        col.label(text=' Apply Value Variation')
         
         row = col.row(align=True) # Painfully inefficient execution but for some reason pies cut off random items elsewise
         col3 = row.column(align=True)
@@ -485,9 +508,9 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         edit_color_op.edit_type = 'apply'
         edit_color_op.variation_value = 'color_wheel'
         #7 - TOP - LEFT
-        pie.separator()
+        pie.operator("vcolor_plus.quick_color_switch", text='Quick Color Switch', icon='LOOP_FORWARDS')
         #9 - TOP - RIGHT
-        pie.separator()
+        pie.operator("vcolor_plus.quick_interpolation_switch", text='Smooth/Hard Switch', icon='MATSHADERBALL')
         # 1 - BOTTOM - LEFT
         pie.separator()
         # 3 - BOTTOM - RIGHT

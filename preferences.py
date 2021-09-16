@@ -203,7 +203,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         description='If enabled, changing the Active Color will update any vertices that are selected'
     )
 
-    smooth_hard_application: EnumProperty(
+    interpolation_type: EnumProperty(
         items=(
             ('smooth', "Smooth", ""),
             ('hard', "Hard", "")
@@ -227,18 +227,25 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
     generation_type: EnumProperty(
         items=(
-            ('per_uv_shell', "Per UV Shell", ""),
-#            ('per_uv_border', "Per UV Border", ""),
-#            ('per_face', "Per Face", ""),
+            ('per_uv_shell', "Per UV Shell  (Random Color)", ""),
+            ('per_uv_border', "Per UV Border", ""),
+#            ('per_face', "Per Face", ""),          # Just some ideas
 #            ('per_vertex', "Per Vertex", ""),
         ),
         name='Generation Type'
     )
 
+    generation_per_uv_border_options: EnumProperty(
+        items=(
+            ('random_col', "Random Color", ""),
+            ('active_col', "Active Color", "")
+        )
+    )
+
     color_wheel: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[1, 1, 1, 1],
+        default=[0, 0, 0, 1],
         size=4,
         min=0,
         max=1,
@@ -248,7 +255,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     alt_color_wheel: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0, 1],
+        default=[1, 1, 1, 1],
         size=4,
         min=0,
         max=1

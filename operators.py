@@ -1,4 +1,5 @@
 
+from os import link
 import bpy, bmesh, colorsys, bpy_extras
 from bpy.types import Operator
 from random import random
@@ -78,7 +79,7 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         layer = find_or_create_vcolor_set(bm, active_ob)
 
         # Get application type (smooth/hard) and then apply to the corresponding geometry
-        if vcolor_plus.smooth_hard_application == 'hard':
+        if vcolor_plus.interpolation_type == 'hard':
             for face in bm.faces:
                 if face.select:
                     for loop in face.loops:
@@ -117,6 +118,21 @@ class VCOLORPLUS_OT_quick_color_switch(OpInfo, Operator):
 
         if vcolor_plus.live_color_tweak:
             bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_wheel')
+        return {'FINISHED'}
+
+
+class VCOLORPLUS_OT_quick_interpolation_switch(OpInfo, Operator):
+    """Switch the shading interpolation between smooth and hard"""
+    bl_idname = "vcolor_plus.quick_interpolation_switch"
+    bl_label = "Smooth/Hard Switch"
+
+    def execute(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+
+        if vcolor_plus.interpolation_type == 'smooth':
+            vcolor_plus.interpolation_type = 'hard'
+        else:
+            vcolor_plus.interpolation_type = 'smooth'
         return {'FINISHED'}
 
 
@@ -422,7 +438,7 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
 
     
 class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
-    """"""
+    """Generate a VColor mask based on the settings below"""
     bl_idname = "vcolor_plus.generate_vcolor"
     bl_label = ""
 
@@ -450,11 +466,35 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                     for loop in face.loops:
                         loop[layer] = random_color
 
-        #elif vcolor_plus.generation_type == 'per_uv_border':
-        #    print(get_island_boundary_edges(bm))
+        elif vcolor_plus.generation_type == 'per_uv_border':
+            for island_indices in uv_islands:
+                random_color = [random(), random(), random(), 1]
+
+                border_vertices = [list(edge.verts) for edge in bm.edges if edge.link_faces[0].index in island_indices and edge.link_faces[1].index not in island_indices or edge.link_faces[0].index not in island_indices and edge.link_faces[1].index in island_indices]
+
+                border_vertices_no_dups = []
+
+                for vertices in border_vertices:
+                    for vert in vertices:
+                        if vert not in border_vertices_no_dups:
+                            border_vertices_no_dups.append(vert.index)
+
+                ## Get linked faces
+                linked_faces = []
+
+                for edge in bm.edges:
+                    for vert in edge.verts:
+                        if vert.index in border_vertices_no_dups:
+                            linked_faces.extend([edge.link_faces[0], edge.link_faces[1]])
+                            break
+
+                for face in linked_faces:
+                    if face.index in island_indices:
+                        for loop in face.loops:
+                            if loop.vert.index in border_vertices_no_dups:
+                                loop[layer] = random_color
 
         bm.to_mesh(active_ob.data)
-
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
         bpy.ops.vcolor_plus.refresh_palette_outliner()
@@ -531,6 +571,7 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
 classes = (
     VCOLORPLUS_OT_edit_color,
     VCOLORPLUS_OT_quick_color_switch,
+    VCOLORPLUS_OT_quick_interpolation_switch,
     VCOLORPLUS_OT_get_active_color,
     VCOLORPLUS_OT_vcolor_shading,
     VCOLORPLUS_OT_value_variation,
