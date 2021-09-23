@@ -229,8 +229,9 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         items=(
             ('per_uv_shell', "Per UV Shell  (Random Color)", ""),
             ('per_uv_border', "Per UV Border", ""),
-#            ('per_face', "Per Face", ""),          # Just some ideas
+#            ('per_face', "Per Face", ""),          # TODO Just some ideas
 #            ('per_vertex', "Per Vertex", ""),
+#            ('per_point', "Per Point (Face Corner)", "")
         ),
         name='Generation Type'
     )
@@ -546,9 +547,7 @@ class VCOLORPLUS_MT_addon_prefs(bpy.types.AddonPreferences):
     bl_idname=__package__
 
     def draw(self, context):
-        layout=self.layout
-
-        VCOLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, layout)
+        VCOLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, self.layout)
 
 
 ##################################
@@ -583,6 +582,10 @@ def register():
     VCOLORPLUS_addon_keymaps.new_keymap('Fill Selection', 'vcolor_plus.edit_color', None,
                                         'Mesh', 'EMPTY', 'WINDOW', 'F',
                                         'PRESS', True, True, False, 'NONE')
+
+    VCOLORPLUS_addon_keymaps.new_keymap('Clear Selection', 'vcolor_plus.edit_color_clear', None,
+                                        'Mesh', 'EMPTY', 'WINDOW', 'F',
+                                        'PRESS', False, True, True, 'NONE')
 
     VCOLORPLUS_addon_keymaps.register_keymaps()
 
