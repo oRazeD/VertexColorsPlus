@@ -383,7 +383,6 @@ class VCOLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
             col.separator()
 
             row = col.row()
-            row.enabled = False
             row.scale_y = .8
             row.prop(vcolor_plus, 'generation_per_uv_border_options', expand=True)
 

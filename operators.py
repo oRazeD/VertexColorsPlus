@@ -1,5 +1,4 @@
 
-from os import link
 import bpy, bmesh, colorsys, bpy_extras
 from bpy.types import Operator
 from random import random
@@ -62,38 +61,49 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
         for ob in context.selected_objects:
-            bm = bmesh.new()
-            bm.from_mesh(ob.data)
+            if ob.type == 'MESH':
+                bm = bmesh.new()
+                bm.from_mesh(ob.data)
 
-            # Get the RGB value based on the property string given
-            if self.variation_value:
-                if self.variation_value.startswith('color_var'):
-                    variation_prop = getattr(vcolor_plus, self.variation_value)
+                # Get the RGB value based on the property string given
+                if self.variation_value:
+                    if self.variation_value.startswith('color_var'):
+                        variation_prop = getattr(vcolor_plus, self.variation_value)
 
-                    rgb_value = (variation_prop[0], variation_prop[1], variation_prop[2], vcolor_plus.color_wheel[3])
+                        rgb_value = (variation_prop[0], variation_prop[1], variation_prop[2], vcolor_plus.color_wheel[3])
+                    else:
+                        rgb_value = getattr(vcolor_plus, self.variation_value)
                 else:
-                    rgb_value = getattr(vcolor_plus, self.variation_value)
-            else:
-                rgb_value = [1,1,1,1]
+                    rgb_value = [1,1,1,1]
 
-            layer = find_or_create_vcolor_set(bm, ob)
+                layer = find_or_create_vcolor_set(bm, ob)
 
-            # Get application type (smooth/hard) and then apply to the corresponding geometry
-            if vcolor_plus.interpolation_type == 'hard':
-                for face in bm.faces:
-                    if face.select or self.edit_type == 'clear_all':
+                # Get application type (smooth/hard) and then apply to the corresponding geometry
+                if vcolor_plus.interpolation_type == 'hard':
+                    for face in bm.faces:
+                        if face.select or self.edit_type == 'clear_all':
+                            for loop in face.loops:
+                                self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
+                else: # Smooth
+                    for face in bm.faces:
                         for loop in face.loops:
                             self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
-            else: # Smooth
-                for face in bm.faces:
-                    for loop in face.loops:
-                        self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
 
-            bm.to_mesh(ob.data)
+                bm.to_mesh(ob.data)
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
         bpy.ops.vcolor_plus.refresh_palette_outliner()
+        return {'FINISHED'}
+
+
+class VCOLORPLUS_OT_edit_color_keymap_placeholder(OpInfo, Operator):
+    bl_idname = "vcolor_plus.edit_color_clear"
+    bl_label = "Clear Selection"
+    bl_options = {'INTERNAL'}
+
+    def execute(self, context):
+        bpy.ops.vcolor_plus.edit_color(edit_type='clear')
         return {'FINISHED'}
 
 
@@ -204,59 +214,59 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
 
     def execute(self, context):
         for ob in context.selected_objects:
-            # Clear palette outliner list
-            ob.vcolor_plus_palette_coll.clear()
+            if ob.type == 'MESH':
+                # Clear palette outliner list
+                ob.vcolor_plus_palette_coll.clear()
 
-            bm = bmesh.from_edit_mesh(ob.data)
+                bm = bmesh.from_edit_mesh(ob.data)
 
-            layer = find_or_create_vcolor_set(bm, ob)
+                layer = find_or_create_vcolor_set(bm, ob)
 
-            # Preserve the original index color value
-            if len(ob.vcolor_plus_palette_coll):
-                saved_color = convert_to_plain_array(array_object=ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index].color)
+                # Preserve the original index color value
+                if len(ob.vcolor_plus_palette_coll):
+                    saved_color = convert_to_plain_array(array_object=ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index].color)
 
-            vcolor_list = []
+                vcolor_list = []
 
-            for face in bm.faces:
-                for loop in face.loops:
-                    reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
+                for face in bm.faces:
+                    for loop in face.loops:
+                        reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
-                    if reconstructed_loop not in vcolor_list and reconstructed_loop != [1,1,1,1]:
-                        vcolor_list.append(reconstructed_loop)
+                        if reconstructed_loop not in vcolor_list and reconstructed_loop != [1,1,1,1]:
+                            vcolor_list.append(reconstructed_loop)
 
-            # TODO Order vcolor_list based on hue, and then value
-            #vcolor_list_hsv = [colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2]) for vcolor in vcolor_list]
+                # TODO Order vcolor_list based on hue, and then value
+                #vcolor_list_hsv = [colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2]) for vcolor in vcolor_list]
 
-            # Generate palette outliner properties
-            for vcolor in vcolor_list:
-                item = ob.vcolor_plus_palette_coll.add()
-                item.id = len(ob.vcolor_plus_palette_coll) - 1
-                item.saved_color = vcolor
-                item.color = vcolor
+                # Generate palette outliner properties
+                for vcolor in vcolor_list:
+                    item = ob.vcolor_plus_palette_coll.add()
+                    item.id = len(ob.vcolor_plus_palette_coll) - 1
+                    item.saved_color = vcolor
+                    item.color = vcolor
 
-                if context.scene.vcolor_plus.rgb_hsv_convert_options == 'rgb':
-                    item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
-                else:
-                    vcolor_hsv = colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2])
+                    if context.scene.vcolor_plus.rgb_hsv_convert_options == 'rgb':
+                        item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
+                    else:
+                        vcolor_hsv = colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2])
 
-                    item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
+                        item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
 
-            # Reconfigure the active color palette based on previously saved color info
-            if ob.vcolor_plus_custom_index != 0:
-                ob.vcolor_plus_custom_index += -1
+                # Reconfigure the active color palette based on previously saved color info
+                if ob.vcolor_plus_custom_index != 0:
+                    ob.vcolor_plus_custom_index += -1
 
-            if 'saved_color' in locals():
-                for vcolor in ob.vcolor_plus_palette_coll:
-                    converted_vcolor = convert_to_plain_array(array_object=vcolor.color)
+                if 'saved_color' in locals():
+                    for vcolor in ob.vcolor_plus_palette_coll:
+                        converted_vcolor = convert_to_plain_array(array_object=vcolor.color)
 
-                    if converted_vcolor == saved_color:
-                        ob.vcolor_plus_custom_index = vcolor.id
-                        break
+                        if converted_vcolor == saved_color:
+                            ob.vcolor_plus_custom_index = vcolor.id
+                            break
         return {'FINISHED'}
 
 
 class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
-    """Change the selected outliner color"""
     bl_idname = "vcolor_plus.change_outliner_color"
     bl_label = ""
     bl_options = {'INTERNAL'}
@@ -435,71 +445,6 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
-    
-class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
-    """Generate a VColor mask based on the settings below"""
-    bl_idname = "vcolor_plus.generate_vcolor"
-    bl_label = ""
-
-    def execute(self, context):
-        vcolor_plus = context.scene.vcolor_plus
-        saved_context_mode = context.object.mode
-
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        for ob in context.selected_objects:
-            uv_islands = bpy_extras.mesh_utils.mesh_linked_uv_islands(ob.data)
-
-            bm = bmesh.new()
-            bm.from_mesh(ob.data)
-            bm.faces.ensure_lookup_table()
-
-            layer = find_or_create_vcolor_set(bm, ob)
-
-            if vcolor_plus.generation_type == 'per_uv_shell':
-                for island in uv_islands:
-                    random_color = [random(), random(), random(), 1]
-                    for face_index in island:
-                        face = bm.faces[face_index]
-
-                        for loop in face.loops:
-                            loop[layer] = random_color
-
-            elif vcolor_plus.generation_type == 'per_uv_border':
-                for island_indices in uv_islands:
-                    random_color = [random(), random(), random(), 1]
-
-                    border_vertices = [list(edge.verts) for edge in bm.edges if edge.link_faces[0].index in island_indices and edge.link_faces[1].index not in island_indices or edge.link_faces[0].index not in island_indices and edge.link_faces[1].index in island_indices]
-
-                    border_vertices_no_dups = []
-
-                    for vertices in border_vertices:
-                        for vert in vertices:
-                            if vert not in border_vertices_no_dups:
-                                border_vertices_no_dups.append(vert.index)
-
-                    ## Get linked faces
-                    linked_faces = []
-
-                    for edge in bm.edges:
-                        for vert in edge.verts:
-                            if vert.index in border_vertices_no_dups:
-                                linked_faces.extend([edge.link_faces[0], edge.link_faces[1]])
-                                break
-
-                    for face in linked_faces:
-                        if face.index in island_indices:
-                            for loop in face.loops:
-                                if loop.vert.index in border_vertices_no_dups:
-                                    loop[layer] = random_color
-
-            bm.to_mesh(ob.data)
-
-        bpy.ops.object.mode_set(mode = saved_context_mode)
-
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
-        return {'FINISHED'}
-
 
 class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
     """Apply a VColor to the border or bounds of your current selection"""
@@ -519,44 +464,131 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
         for ob in context.selected_objects:
-            bm = bmesh.new()
-            bm.from_mesh(ob.data)
+            if ob.type == 'MESH':
+                bm = bmesh.new()
+                bm.from_mesh(ob.data)
 
-            layer = find_or_create_vcolor_set(bm, ob)
+                layer = find_or_create_vcolor_set(bm, ob)
 
-            # Get border vertices
-            border_vertices = [list(edge.verts) for edge in bm.edges if edge.link_faces[0].select != edge.link_faces[1].select]
-            #                  ^^ can also use [*edge.verts] for unpacking every item into an iterable
+                # Get border vertices & linked faces
+                border_vertices = []
+                linked_faces = []
 
-            border_vertices_no_dups = []
+                for edge in bm.edges:
+                    if edge.select:
+                        if edge.is_boundary or edge.link_faces[0].select != edge.link_faces[1].select:
+                            border_vertices.append(list(edge.verts))
 
-            for vertices in border_vertices:
-                for vert in vertices:
-                    if vert not in border_vertices_no_dups:
-                        border_vertices_no_dups.append(vert.index)
+                            linked_faces.extend(list(edge.link_faces))
 
-            # Get linked faces
-            linked_faces = []
+                #border_vertices = [list(edge.verts) for edge in bm.edges if edge.link_faces[0].select != edge.link_faces[1].select]
+                #                  ^^ can also use [*edge.verts] for unpacking every item into an iterable
 
-            for edge in bm.edges:
-                if edge.select:
-                    linked_faces.extend([edge.link_faces[0], edge.link_faces[1]])
+                # Remove duplicate verts from the list
+                border_vertices_no_dups = []
 
-            # Search linked faces for loops on the correct sides of the vertices
-            if self.border_type == 'inner':
-                for face in linked_faces:
-                    if face.select:
-                        for loop in face.loops:
-                            if loop.vert.index in border_vertices_no_dups:
-                                loop[layer] = context.scene.vcolor_plus.color_wheel
-            else:
-                for face in linked_faces:
-                    if not face.select:
-                        for loop in face.loops:
-                            if loop.vert.index in border_vertices_no_dups:
-                                loop[layer] = context.scene.vcolor_plus.color_wheel
+                for vertices in border_vertices:
+                    for vert in vertices:
+                        if vert not in border_vertices_no_dups:
+                            border_vertices_no_dups.append(vert.index)
 
-            bm.to_mesh(ob.data)
+                # Search linked faces for loops on the correct sides of the vertices
+                if self.border_type == 'inner':
+                    for face in linked_faces:
+                        if face.select:
+                            for loop in face.loops:
+                                if loop.vert.index in border_vertices_no_dups:
+                                    loop[layer] = context.scene.vcolor_plus.color_wheel
+                else:
+                    for face in linked_faces:
+                        if not face.select:
+                            for loop in face.loops:
+                                if loop.vert.index in border_vertices_no_dups:
+                                    loop[layer] = context.scene.vcolor_plus.color_wheel
+
+                bm.to_mesh(ob.data)
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
+
+        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        return {'FINISHED'}
+
+
+class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
+    """Generate a VColor mask based on the settings below"""
+    bl_idname = "vcolor_plus.generate_vcolor"
+    bl_label = ""
+
+    def execute(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+        saved_context_mode = context.object.mode
+
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        no_uv_obs = []
+
+        for ob in context.selected_objects:
+            if ob.type == 'MESH':
+                try:
+                    uv_islands = bpy_extras.mesh_utils.mesh_linked_uv_islands(ob.data)
+                except AttributeError:
+                    no_uv_obs.append(ob.name)
+                    continue
+
+                bm = bmesh.new()
+                bm.from_mesh(ob.data)
+                bm.faces.ensure_lookup_table()
+
+                layer = find_or_create_vcolor_set(bm, ob)
+
+                if vcolor_plus.generation_type == 'per_uv_shell':
+                    for island_idx in uv_islands:
+                        random_color = [random(), random(), random(), 1]
+
+                        for face_idx in island_idx:
+                            face = bm.faces[face_idx]
+
+                            for loop in face.loops:
+                                loop[layer] = random_color
+
+                elif vcolor_plus.generation_type == 'per_uv_border':
+                    for island_idx in uv_islands:
+                        random_color = [random(), random(), random(), 1]
+                            
+                        # Get border vertices & linked faces
+                        border_vertices = []
+                        linked_faces = []
+
+                        for edge in bm.edges:
+                            if (
+                                edge.is_boundary
+                                or (edge.link_faces[0].index == island_idx and edge.link_faces[1].index != island_idx)
+                                or (edge.link_faces[0].index != island_idx and edge.link_faces[1].index == island_idx)
+                            ):
+                                border_vertices.append(list(edge.verts))
+
+                                linked_faces.extend(list(edge.link_faces))
+
+                        border_vertices_no_dups = []
+
+                        for vertices in border_vertices:
+                            for vert in vertices:
+                                if vert not in border_vertices_no_dups:
+                                    border_vertices_no_dups.append(vert.index)
+
+                        for face in linked_faces:
+                            if face.index in island_idx:
+                                for loop in face.loops:
+                                    if loop.vert.index in border_vertices_no_dups:
+                                        if vcolor_plus.generation_per_uv_border_options == 'random_col':
+                                            loop[layer] = random_color
+                                        else: # Active color
+                                            loop[layer] = context.scene.vcolor_plus.color_wheel
+
+                bm.to_mesh(ob.data)
+
+        if len(no_uv_obs):
+            self.report({'INFO'}, f"UVs not found for: {no_uv_obs}")
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
@@ -571,6 +603,7 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
 
 classes = (
     VCOLORPLUS_OT_edit_color,
+    VCOLORPLUS_OT_edit_color_keymap_placeholder,
     VCOLORPLUS_OT_quick_color_switch,
     VCOLORPLUS_OT_quick_interpolation_switch,
     VCOLORPLUS_OT_get_active_color,
@@ -584,8 +617,8 @@ classes = (
     VCOLORPLUS_OT_delete_outliner_color,
     VCOLORPLUS_OT_convert_to_vgroup,
     VCOLORPLUS_OT_custom_color_apply,
-    VCOLORPLUS_OT_generate_vcolor,
-    VCOLORPLUS_OT_apply_color_to_border
+    VCOLORPLUS_OT_apply_color_to_border,
+    VCOLORPLUS_OT_generate_vcolor
 )
 
 
