@@ -60,6 +60,8 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
+        context.object.select_set(True)
+
         for ob in context.selected_objects:
             if ob.type == 'MESH':
                 bm = bmesh.new()
@@ -463,6 +465,8 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
+        context.object.select_set(True)
+
         for ob in context.selected_objects:
             if ob.type == 'MESH':
                 bm = bmesh.new()
@@ -477,33 +481,24 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
                 for edge in bm.edges:
                     if edge.select:
                         if edge.is_boundary or edge.link_faces[0].select != edge.link_faces[1].select:
-                            border_vertices.append(list(edge.verts))
+                            for vert in edge.verts:
+                                if vert.index not in border_vertices:
+                                    border_vertices.append(vert.index)
 
                             linked_faces.extend(list(edge.link_faces))
-
-                #border_vertices = [list(edge.verts) for edge in bm.edges if edge.link_faces[0].select != edge.link_faces[1].select]
-                #                  ^^ can also use [*edge.verts] for unpacking every item into an iterable
-
-                # Remove duplicate verts from the list
-                border_vertices_no_dups = []
-
-                for vertices in border_vertices:
-                    for vert in vertices:
-                        if vert not in border_vertices_no_dups:
-                            border_vertices_no_dups.append(vert.index)
 
                 # Search linked faces for loops on the correct sides of the vertices
                 if self.border_type == 'inner':
                     for face in linked_faces:
                         if face.select:
                             for loop in face.loops:
-                                if loop.vert.index in border_vertices_no_dups:
+                                if loop.vert.index in border_vertices:
                                     loop[layer] = context.scene.vcolor_plus.color_wheel
                 else:
                     for face in linked_faces:
                         if not face.select:
                             for loop in face.loops:
-                                if loop.vert.index in border_vertices_no_dups:
+                                if loop.vert.index in border_vertices:
                                     loop[layer] = context.scene.vcolor_plus.color_wheel
 
                 bm.to_mesh(ob.data)
@@ -527,6 +522,8 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
 
         no_uv_obs = []
 
+        context.object.select_set(True)
+
         for ob in context.selected_objects:
             if ob.type == 'MESH':
                 try:
@@ -542,18 +539,19 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                 layer = find_or_create_vcolor_set(bm, ob)
 
                 if vcolor_plus.generation_type == 'per_uv_shell':
-                    for island_idx in uv_islands:
+                    for island_idxs in uv_islands:
                         random_color = [random(), random(), random(), 1]
 
-                        for face_idx in island_idx:
+                        for face_idx in island_idxs:
                             face = bm.faces[face_idx]
 
                             for loop in face.loops:
                                 loop[layer] = random_color
 
                 elif vcolor_plus.generation_type == 'per_uv_border':
-                    for island_idx in uv_islands:
-                        random_color = [random(), random(), random(), 1]
+                    for island_idxs in uv_islands:
+                        if vcolor_plus.generation_per_uv_border_options == 'random_col':
+                            random_color = [random(), random(), random(), 1]
                             
                         # Get border vertices & linked faces
                         border_vertices = []
@@ -562,27 +560,27 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                         for edge in bm.edges:
                             if (
                                 edge.is_boundary
-                                or (edge.link_faces[0].index == island_idx and edge.link_faces[1].index != island_idx)
-                                or (edge.link_faces[0].index != island_idx and edge.link_faces[1].index == island_idx)
+                                or (edge.link_faces[0].index in island_idxs and edge.link_faces[1].index not in island_idxs)
+                                or (edge.link_faces[0].index not in island_idxs and edge.link_faces[1].index in island_idxs)
                             ):
-                                border_vertices.append(list(edge.verts))
+                                for vert in edge.verts:
+                                    if vert.index not in border_vertices:
+                                        border_vertices.append(vert.index)
 
-                                linked_faces.extend(list(edge.link_faces))
+                            for vert in edge.verts:
+                                if vert.index in border_vertices:
+                                    for face in edge.link_faces:
+                                        if face not in linked_faces:
+                                            linked_faces.append(face)
 
-                        border_vertices_no_dups = []
-
-                        for vertices in border_vertices:
-                            for vert in vertices:
-                                if vert not in border_vertices_no_dups:
-                                    border_vertices_no_dups.append(vert.index)
-
+                        # Assign a color to interior loops of linked faces
                         for face in linked_faces:
-                            if face.index in island_idx:
+                            if face.index in island_idxs:
                                 for loop in face.loops:
-                                    if loop.vert.index in border_vertices_no_dups:
+                                    if loop.vert.index in border_vertices:
                                         if vcolor_plus.generation_per_uv_border_options == 'random_col':
                                             loop[layer] = random_color
-                                        else: # Active color
+                                        else: # Apply active color
                                             loop[layer] = context.scene.vcolor_plus.color_wheel
 
                 bm.to_mesh(ob.data)
