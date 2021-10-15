@@ -3,7 +3,7 @@ bl_info = {
     "author":"Ethan Simon-Law",
     "location": "3D View > Sidebar > VColor Plus (Edit Mode)",
     "version":(0, 1),
-    "blender":(2, 93, 0),
+    "blender":(3, 0, 0),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"
 }
