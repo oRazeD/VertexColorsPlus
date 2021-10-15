@@ -26,6 +26,16 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         layout = self.layout
 
+        col = layout.column()
+        col.scale_y = 1.3
+        col.operator(
+            "vcolor_plus.switch_to_paint_or_edit",
+            text='Switch to Painting' if context.mode == 'EDIT_MESH' else 'Switch to Editing',
+            icon='VPAINT_HLT' if context.mode == 'EDIT_MESH' else 'EDITMODE_HLT'
+        )
+
+        col.separator(factor=.5)
+
         col = layout.column(align=True)
 
         split = col.split(factor=.6, align=True)
@@ -139,14 +149,16 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
     def draw(self, context):
         layout = self.layout
 
+        ob = context.object
+
         disable_ui = False
 
         try:
-            idx_check = context.object.vcolor_plus_palette_coll[context.object.vcolor_plus_custom_index]
+            _idx_check = ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index]
         except (IndexError, ValueError):
             disable_ui = True
 
-        if not len(context.object.vcolor_plus_palette_coll):
+        if not len(ob.vcolor_plus_palette_coll):
             disable_ui = True
 
         col = layout.column()
@@ -155,8 +167,13 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         row = layout.row()
 
         col = row.column(align=True)
-        col.template_list("VCOLORPLUS_UL_items", "", context.object, "vcolor_plus_palette_coll", context.object, "vcolor_plus_custom_index", rows=4)
-        
+        col.template_list("VCOLORPLUS_UL_items", "", ob, "vcolor_plus_palette_coll", ob, "vcolor_plus_custom_index", rows=4)
+
+        if len(ob.vcolor_plus_palette_coll) > 24:
+            box = col.box()
+            box.scale_y = .8
+            box.label(text = 'Max # of items reached (25)', icon='ERROR')
+
         if len(context.selected_objects) > 1:
             box = col.box()
             box.scale_y = .8

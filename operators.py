@@ -1,5 +1,5 @@
 
-import bpy, bmesh, colorsys, bpy_extras
+import bpy, bmesh, colorsys, bpy_extras, time
 from bpy.types import Operator
 from random import random
 
@@ -28,6 +28,21 @@ def find_or_create_vcolor_set(bm, active_ob):
     else:
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
     return layer
+
+
+class VCOLORPLUS_OT_switch_to_paint_or_edit(OpInfo, Operator):
+    """Switch to vertex painting, this option automates some scene settings and links the active color with the brush color"""
+    bl_idname = "vcolor_plus.switch_to_paint_or_edit"
+    bl_label = ""
+
+    def execute(self, context):
+        if context.mode == 'PAINT_VERTEX':
+            # TODO Set brush color to Active Color
+
+            bpy.ops.object.mode_set(mode = 'EDIT')
+        else:
+            bpy.ops.object.mode_set(mode = 'VERTEX_PAINT')
+        return {'FINISHED'}
 
 
 class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
@@ -210,7 +225,7 @@ class VCOLORPLUS_OT_value_variation(OpInfo, Operator):
 
 
 class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
-    """Refresh the palette outliner of the Active Object"""
+    """Manual refresh for the palette outliner of the Active Object as sometimes it doesn't update correctly on its own"""
     bl_idname = "vcolor_plus.refresh_palette_outliner"
     bl_label = "Refresh Palette"
 
@@ -230,8 +245,18 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
 
                 vcolor_list = []
 
+                message_sent = False
+
                 for face in bm.faces:
+                    if message_sent:
+                        break
+
                     for loop in face.loops:
+                        if len(vcolor_list) == 25:
+                            message_sent = True
+                            self.report({'WARNING'}, "Maximum amount of Palette Outliner vertex colors reached (25)")
+                            break
+
                         reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                         if reconstructed_loop not in vcolor_list and reconstructed_loop != [1,1,1,1]:
@@ -475,7 +500,7 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
                 layer = find_or_create_vcolor_set(bm, ob)
 
                 # Get border vertices & linked faces
-                border_vertices = []
+                border_vertices = set([])
                 linked_faces = []
 
                 for edge in bm.edges:
@@ -483,7 +508,7 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
                         if edge.is_boundary or edge.link_faces[0].select != edge.link_faces[1].select:
                             for vert in edge.verts:
                                 if vert.index not in border_vertices:
-                                    border_vertices.append(vert.index)
+                                    border_vertices.add(vert.index)
 
                             linked_faces.extend(list(edge.link_faces))
 
@@ -554,8 +579,8 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                             random_color = [random(), random(), random(), 1]
                             
                         # Get border vertices & linked faces
-                        border_vertices = []
-                        linked_faces = []
+                        border_vertices = set([]) # Set is generally faster than list if you don't need it to be ordered
+                        linked_faces = set([])
 
                         for edge in bm.edges:
                             if (
@@ -565,13 +590,13 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                             ):
                                 for vert in edge.verts:
                                     if vert.index not in border_vertices:
-                                        border_vertices.append(vert.index)
+                                        border_vertices.add(vert.index)
 
                             for vert in edge.verts:
                                 if vert.index in border_vertices:
                                     for face in edge.link_faces:
                                         if face not in linked_faces:
-                                            linked_faces.append(face)
+                                            linked_faces.add(face)
 
                         # Assign a color to interior loops of linked faces
                         for face in linked_faces:
@@ -600,6 +625,7 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
 
 
 classes = (
+    VCOLORPLUS_OT_switch_to_paint_or_edit,
     VCOLORPLUS_OT_edit_color,
     VCOLORPLUS_OT_edit_color_keymap_placeholder,
     VCOLORPLUS_OT_quick_color_switch,
