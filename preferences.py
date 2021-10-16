@@ -1,5 +1,5 @@
 import bpy, rna_keymap_ui, colorsys
-from bpy.props import BoolProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
+from bpy.props import BoolProperty, FloatProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
 from bpy.types import Panel, Menu
@@ -186,12 +186,15 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         # Convert the RGB value to HSV for easy tweaking
         color_wheel_hsv = colorsys.rgb_to_hsv(self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
         
-        # Set value of color variation previews
-        self.color_var_1 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .2)
-        self.color_var_2 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .4)
-        self.color_var_3 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .6)
-        self.color_var_4 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], .8)
-        self.color_var_5 = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], 1)
+        # Set value of color variation preview
+        self.color_var = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], self.color_var_slider)
+
+    def update_color_variation(self, context): # extension of update_color_wheel, but using the variation value
+        self.update_color_wheel(context)
+
+        # Update selected vertices if live color tweak is on
+        if self.live_color_tweak:
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_var')
 
     def palette_update(self, context):
         bpy.ops.vcolor_plus.refresh_palette_outliner()
@@ -217,6 +220,17 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         )
     )
 
+    auto_palette_refresh: BoolProperty(
+        name="Auto Palette Refresh",
+        description=
+        '''If disabled, will stop updating the entire palette outliner whenever you run an operator.
+        
+Useful if your scene is slowing down.
+        
+Certain items may still be changed if the code interacts with the outliner directly''',
+        default=True
+    )
+
     rgb_hsv_convert_options: EnumProperty(
         items=(
             ('hsv', "HSV", ""),
@@ -229,9 +243,9 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         items=(
             ('per_uv_shell', "Per UV Shell  (Random Color)", ""),
             ('per_uv_border', "Per UV Border", ""),
-#            ('per_face', "Per Face", ""),          # TODO Just some ideas
-#            ('per_vertex', "Per Vertex", ""),
-#            ('per_point', "Per Point (Face Corner)", "")
+            ('per_face', "Per Face", ""),
+            #('per_vertex', "Per Vertex", ""),
+            ('per_point', "Per Point (Face Corner)", "")
         ),
         name='Generation Type'
     )
@@ -271,42 +285,19 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         max=1
     )
 
-    color_var_1: FloatVectorProperty(
+    color_var_slider: FloatProperty(
         name="",
-        subtype='COLOR_GAMMA',
-        default=[.2, .2, .2],
+        description='Applies value variation to the selection without the need to change the Active Color (WARNING: This works with Live Tweak)',
+        default=.5,
         min=0,
-        max=1
+        max=1,
+        update=update_color_variation
     )
 
-    color_var_2: FloatVectorProperty(
+    color_var: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.4, .4, .4],
-        min=0,
-        max=1
-    )
-
-    color_var_3: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[.6, .6, .6],
-        min=0,
-        max=1
-    )
-
-    color_var_4: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[.8, .8, .8],
-        min=0,
-        max=1
-    )
-
-    color_var_5: FloatVectorProperty(
-        name="",
-        subtype='COLOR_GAMMA',
-        default=[1, 1, 1],
+        default=[.5, .5, .5],
         min=0,
         max=1
     )

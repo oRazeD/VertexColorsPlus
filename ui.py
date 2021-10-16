@@ -75,6 +75,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.label(text=' Interpolation')
 
         row = split.row()
+        row.enabled = False if context.mode != 'EDIT_MESH' else True
         row.prop(vcolor_plus, 'interpolation_type', expand=True)
         
         if vcolor_plus.interpolation_type == 'hard':
@@ -116,19 +117,15 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
         col.label(text=' Apply Value Variation')
 
         row = col.row(align=True)
-        row.operator("vcolor_plus.value_variation", text='.2').variation_value = 'color_var_1'
-        row.operator("vcolor_plus.value_variation", text='.4').variation_value = 'color_var_2'
-        row.operator("vcolor_plus.value_variation", text='.6').variation_value = 'color_var_3'
-        row.operator("vcolor_plus.value_variation", text='.8').variation_value = 'color_var_4'
-        row.operator("vcolor_plus.value_variation", text='1').variation_value = 'color_var_5'
+        row.enabled = False if context.mode != 'EDIT_MESH' else True
+        
+        edit_color = row.operator('vcolor_plus.edit_color', text='', icon='CHECKMARK')
+        edit_color.edit_type = 'apply'
+        edit_color.variation_value = 'color_var'
 
-        row = col.row(align=True)
-        row.enabled = False
-        row.prop(vcolor_plus, 'color_var_1')
-        row.prop(vcolor_plus, 'color_var_2')
-        row.prop(vcolor_plus, 'color_var_3')
-        row.prop(vcolor_plus, 'color_var_4')
-        row.prop(vcolor_plus, 'color_var_5')
+        split = row.split(factor=.75, align=True)
+        split.prop(vcolor_plus, 'color_var_slider')
+        split.prop(vcolor_plus, 'color_var')
 
 
 class VCOLORPLUS_UL_items(UIList):
@@ -164,6 +161,10 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         col = layout.column()
         col.operator("vcolor_plus.refresh_palette_outliner", text='Refresh Palette', icon='FILE_REFRESH')
 
+        split = col.split(factor=.3)
+        split.separator()
+        split.prop(context.scene.vcolor_plus, 'auto_palette_refresh')
+
         row = layout.row()
 
         col = row.column(align=True)
@@ -180,6 +181,7 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
             box.label(text = 'Only uses Active Object', icon='INFO')
 
         row2 = col.row(align=True)
+        row2.scale_y = .95
         row2.enabled = not disable_ui
         row2.prop(context.scene.vcolor_plus, 'rgb_hsv_convert_options', expand=True)
 
@@ -455,7 +457,7 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         #6 - RIGHT
         col = pie.column()
 
-        col.scale_x = .475
+        col.scale_x = .9
         col.separator(factor=12)
 
         box = col.box().column(align=True)
@@ -470,6 +472,8 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         edit_color_op.variation_value = 'color_wheel'
         row.operator("vcolor_plus.edit_color", text='Clear All', icon='PANEL_CLOSE').edit_type = 'clear_all'
 
+        col.separator(factor=.5)
+
         box = col.box()
         col2 = box.column(align=True)
         col2.label(text=' Apply to Selection Border')
@@ -478,45 +482,20 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         row.operator('vcolor_plus.apply_color_to_border', text='Inner', icon='CLIPUV_HLT').border_type = 'inner'
         row.operator('vcolor_plus.apply_color_to_border', text='Outer', icon='CLIPUV_DEHLT').border_type = 'outer'
 
+        col.separator(factor=.5)
+
         box2 = col.box()
         col = box2.column(align=True)
         col.label(text=' Apply Value Variation')
         
-        row = col.row(align=True) # Painfully inefficient execution but for some reason pies cut off random items elsewise
-        col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.2').variation_value = 'color_var_1'
+        row = col.row(align=True)
+        edit_color = row.operator('vcolor_plus.edit_color', text='', icon='CHECKMARK')
+        edit_color.edit_type = 'apply'
+        edit_color.variation_value = 'color_var'
 
-        col4 = col3.column(align=True)
-        col4.enabled = False
-        col4.prop(vcolor_plus, 'color_var_1')
-
-        col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.4').variation_value = 'color_var_2'
-
-        col4 = col3.column(align=True)
-        col4.enabled = False
-        col4.prop(vcolor_plus, 'color_var_2')
-
-        col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.6').variation_value = 'color_var_3'
-
-        col4 = col3.column(align=True)
-        col4.enabled = False
-        col4.prop(vcolor_plus, 'color_var_3')
-
-        col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='.8').variation_value = 'color_var_4'
-
-        col4 = col3.column(align=True)
-        col4.enabled = False
-        col4.prop(vcolor_plus, 'color_var_4')
-
-        col3 = row.column(align=True)
-        col3.operator("vcolor_plus.value_variation", text='1').variation_value = 'color_var_5'
-
-        col4 = col3.column(align=True)
-        col4.enabled = False
-        col4.prop(vcolor_plus, 'color_var_5')
+        split = row.split(factor=.8, align=True)
+        split.prop(vcolor_plus, 'color_var_slider')
+        split.prop(vcolor_plus, 'color_var')
         #2 - BOTTOM
         pie.operator("vcolor_plus.edit_color", text='Clear Selection', icon='PANEL_CLOSE').edit_type = 'clear'
         #8 - TOP

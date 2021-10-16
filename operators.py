@@ -36,11 +36,20 @@ class VCOLORPLUS_OT_switch_to_paint_or_edit(OpInfo, Operator):
     bl_label = ""
 
     def execute(self, context):
+        vcolor_plus = context.scene.vcolor_plus
+
+        context.space_data.shading.type = 'SOLID'
+        context.space_data.shading.color_type = 'VERTEX'
+
         if context.mode == 'PAINT_VERTEX':
-            # TODO Set brush color to Active Color
+            brush_color = bpy.data.brushes["Draw"].color # Poor way to sync these values but is what it is
+
+            vcolor_plus.color_wheel = (brush_color[0], brush_color[1], brush_color[2], vcolor_plus.color_wheel[3])
 
             bpy.ops.object.mode_set(mode = 'EDIT')
         else:
+            bpy.data.brushes["Draw"].color = (vcolor_plus.color_wheel[0], vcolor_plus.color_wheel[1], vcolor_plus.color_wheel[2])
+
             bpy.ops.object.mode_set(mode = 'VERTEX_PAINT')
         return {'FINISHED'}
 
@@ -110,7 +119,8 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        if vcolor_plus.auto_palette_refresh:
+            bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -168,8 +178,15 @@ class VCOLORPLUS_OT_get_active_color(OpInfo, Operator):
     bl_idname = "vcolor_plus.get_active_color"
     bl_label = "Color from Active Vertex"
 
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+
     def execute(self, context):
         active_ob = context.object
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'EDIT')
 
         if not active_ob.data.vertex_colors:
             context.scene.vcolor_plus.color_wheel = (1, 1, 1, 1)
@@ -198,6 +215,8 @@ class VCOLORPLUS_OT_get_active_color(OpInfo, Operator):
 
                 if loop.vert.select and loop.vert == active_selection:
                     context.scene.vcolor_plus.color_wheel = loop[layer]
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
 
 
@@ -212,26 +231,19 @@ class VCOLORPLUS_OT_vcolor_shading(OpInfo, Operator):
         return {'FINISHED'}
 
 
-class VCOLORPLUS_OT_value_variation(OpInfo, Operator):
-    """Applies value variation to the selection without the need to change the Active Color"""
-    bl_idname = "vcolor_plus.value_variation"
-    bl_label = ""
-
-    variation_value: bpy.props.StringProperty(options={'HIDDEN'})
-
-    def execute(self, context):
-        bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value=self.variation_value)
-        return {'FINISHED'}
-
-
 class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
     """Manual refresh for the palette outliner of the Active Object as sometimes it doesn't update correctly on its own"""
     bl_idname = "vcolor_plus.refresh_palette_outliner"
     bl_label = "Refresh Palette"
 
     def execute(self, context):
+        saved_context_mode = context.object.mode
+
+        bpy.ops.object.mode_set(mode = 'EDIT')
+
         for ob in context.selected_objects:
             if ob.type == 'MESH':
+                
                 # Clear palette outliner list
                 ob.vcolor_plus_palette_coll.clear()
 
@@ -290,6 +302,8 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
                         if converted_vcolor == saved_color:
                             ob.vcolor_plus_custom_index = vcolor.id
                             break
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
 
 
@@ -303,6 +317,9 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
     def execute(self, context):
         active_ob = context.object
         active_palette = active_ob.vcolor_plus_palette_coll[self.id]
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'EDIT')
 
         bm = bmesh.from_edit_mesh(active_ob.data)
 
@@ -321,6 +338,8 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
         active_palette.name = f'({round(palette_color[0] * 255)}, {round(palette_color[1] * 255)}, {round(palette_color[2] * 255)}, {round(palette_color[3], 2)})'
 
         bmesh.update_edit_mesh(active_ob.data)
+
+        bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
 
 
@@ -396,6 +415,9 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
     def execute(self, context):
         active_ob = context.object
         active_palette = active_ob.vcolor_plus_palette_coll[active_ob.vcolor_plus_custom_index]
+        saved_context_mode = active_ob.mode
+
+        bpy.ops.object.mode_set(mode = 'EDIT')
 
         bm = bmesh.from_edit_mesh(active_ob.data)
 
@@ -412,7 +434,10 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
 
         bmesh.update_edit_mesh(active_ob.data)
 
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        bpy.ops.object.mode_set(mode = saved_context_mode)
+
+        if context.scene.vcolor_plus.auto_palette_refresh:
+            bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -461,6 +486,10 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
 
     custom_color_name: bpy.props.StringProperty(options={'HIDDEN'})
 
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH' or context.mode != 'EDIT_MESH' and context.scene.vcolor_plus.custom_palette_apply_options == 'apply_to_col'
+
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
 
@@ -469,7 +498,8 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
         else: # Apply to Active Color
             vcolor_plus.color_wheel = getattr(vcolor_plus, self.custom_color_name)
 
-            bpy.ops.vcolor_plus.refresh_palette_outliner()
+            if vcolor_plus.auto_palette_refresh:
+                bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -484,6 +514,10 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
             ('outer', "Outer", "")
         )
     )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
         saved_context_mode = context.object.mode
@@ -530,7 +564,8 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        if context.scene.vcolor_plus.auto_palette_refresh:
+            bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -551,11 +586,12 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
 
         for ob in context.selected_objects:
             if ob.type == 'MESH':
-                try:
-                    uv_islands = bpy_extras.mesh_utils.mesh_linked_uv_islands(ob.data)
-                except AttributeError:
-                    no_uv_obs.append(ob.name)
-                    continue
+                if vcolor_plus.generation_type in ('per_uv_shell', 'per_uv_border'):
+                    try:
+                        uv_islands = bpy_extras.mesh_utils.mesh_linked_uv_islands(ob.data)
+                    except AttributeError:
+                        no_uv_obs.append(ob.name)
+                        continue
 
                 bm = bmesh.new()
                 bm.from_mesh(ob.data)
@@ -608,14 +644,29 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                                         else: # Apply active color
                                             loop[layer] = context.scene.vcolor_plus.color_wheel
 
+                elif vcolor_plus.generation_type == 'per_face':
+                    for face in bm.faces:
+                        random_color = [random(), random(), random(), 1]
+
+                        for loop in face.loops:
+                            loop[layer] = random_color
+
+                elif vcolor_plus.generation_type == 'per_point':
+                    for face in bm.faces:
+                        for loop in face.loops:
+                            random_color = [random(), random(), random(), 1]
+
+                            loop[layer] = random_color
+
                 bm.to_mesh(ob.data)
 
-        if len(no_uv_obs):
+        if len(no_uv_obs) and vcolor_plus.generation_type in ('per_uv_shell', 'per_uv_border'):
             self.report({'INFO'}, f"UVs not found for: {no_uv_obs}")
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
+        if vcolor_plus.auto_palette_refresh:
+            bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -632,7 +683,6 @@ classes = (
     VCOLORPLUS_OT_quick_interpolation_switch,
     VCOLORPLUS_OT_get_active_color,
     VCOLORPLUS_OT_vcolor_shading,
-    VCOLORPLUS_OT_value_variation,
     VCOLORPLUS_OT_refresh_palette_outliner,
     VCOLORPLUS_OT_change_outliner_color,
     VCOLORPLUS_OT_get_active_outliner_color,
