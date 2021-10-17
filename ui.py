@@ -147,6 +147,7 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         layout = self.layout
 
         ob = context.object
+        vcolor_prefs = context.preferences.addons[__package__].preferences
 
         disable_ui = False
 
@@ -161,19 +162,15 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         col = layout.column()
         col.operator("vcolor_plus.refresh_palette_outliner", text='Refresh Palette', icon='FILE_REFRESH')
 
-        split = col.split(factor=.3)
-        split.separator()
-        split.prop(context.scene.vcolor_plus, 'auto_palette_refresh')
-
         row = layout.row()
 
         col = row.column(align=True)
         col.template_list("VCOLORPLUS_UL_items", "", ob, "vcolor_plus_palette_coll", ob, "vcolor_plus_custom_index", rows=4)
 
-        if len(ob.vcolor_plus_palette_coll) > 24:
+        if len(ob.vcolor_plus_palette_coll) == vcolor_prefs.max_outliner_items:
             box = col.box()
             box.scale_y = .8
-            box.label(text = 'Max # of items reached (25)', icon='ERROR')
+            box.label(text = f'Max # of items reached ({vcolor_prefs.max_outliner_items})', icon='ERROR')
 
         if len(context.selected_objects) > 1:
             box = col.box()

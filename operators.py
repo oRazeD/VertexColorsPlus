@@ -1,7 +1,8 @@
 
-import bpy, bmesh, colorsys, bpy_extras, time
+import bpy, bmesh, colorsys, bpy_extras
 from bpy.types import Operator
 from random import random
+from operator import itemgetter
 
 
 ################################################################################################################
@@ -76,7 +77,7 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
             loop[layer] = rgb_value
 
         elif self.edit_type == 'clear' and loop.vert.select or self.edit_type == 'clear_all':
-            loop[layer] = [1,1,1,1]
+            loop[layer] = [1, 1, 1, 1]
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -100,7 +101,7 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
                     else:
                         rgb_value = getattr(vcolor_plus, self.variation_value)
                 else:
-                    rgb_value = [1,1,1,1]
+                    rgb_value = [1, 1, 1, 1]
 
                 layer = find_or_create_vcolor_set(bm, ob)
 
@@ -119,7 +120,7 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        if vcolor_plus.auto_palette_refresh:
+        if context.preferences.addons[__package__].preferences.auto_palette_refresh:
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
@@ -236,8 +237,11 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
     bl_idname = "vcolor_plus.refresh_palette_outliner"
     bl_label = "Refresh Palette"
 
+    saved_id: bpy.props.IntProperty(default=-1)
+
     def execute(self, context):
         saved_context_mode = context.object.mode
+        vcolor_prefs = context.preferences.addons[__package__].preferences
 
         bpy.ops.object.mode_set(mode = 'EDIT')
 
@@ -264,25 +268,49 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
                         break
 
                     for loop in face.loops:
-                        if len(vcolor_list) == 25:
+                        if len(vcolor_list) == vcolor_prefs.max_outliner_items:
                             message_sent = True
-                            self.report({'WARNING'}, "Maximum amount of Palette Outliner vertex colors reached (25)")
+                            self.report({'WARNING'}, f"Maximum amount of Palette Outliner vertex colors reached ({vcolor_prefs.max_outliner_items})")
                             break
 
                         reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
-                        if reconstructed_loop not in vcolor_list and reconstructed_loop != [1,1,1,1]:
+                        if reconstructed_loop not in vcolor_list and reconstructed_loop != [1, 1, 1, 1]:
                             vcolor_list.append(reconstructed_loop)
 
-                # TODO Order vcolor_list based on hue, and then value
-                #vcolor_list_hsv = [colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2]) for vcolor in vcolor_list]
+                # TODO Unused sorting method, currently breaks the outliner in odd ways that I cannot solve
+
+                # Convert to HSV, sort list by value
+                #vcolor_list_hsv = []
+                #for vcolor in vcolor_list:
+                #    vcolor_list_hsv.append([*colorsys.rgb_to_hsv(*vcolor[:3]), vcolor[3]])
+#
+                ## Separate the values to sort them properly
+                #vcolor_list_hsv_values = [vcolor for vcolor in vcolor_list_hsv if vcolor[0] == 0]
+                #vcolor_list_hsv_values_sorted = sorted(vcolor_list_hsv_values, key=itemgetter(2))
+#
+                #vcolor_list_hsv_hues = [vcolor for vcolor in vcolor_list_hsv if vcolor not in vcolor_list_hsv_values]
+                #vcolor_list_hsv_hues_sorted = sorted(vcolor_list_hsv_hues, key=itemgetter(0))
+#
+                ## Merge the 2 lists
+                #vcolor_list_hsv_sorted = vcolor_list_hsv_values_sorted + vcolor_list_hsv_hues_sorted
+#
+                ## Convert back to RGB
+                #vcolor_list_rgb = []
+                #for vcolor in vcolor_list_hsv_sorted:
+                #    vcolor_list_rgb.append([*colorsys.hsv_to_rgb(*vcolor[:3]), vcolor[3]])
 
                 # Generate palette outliner properties
-                for vcolor in vcolor_list:
+                for index, vcolor in enumerate(vcolor_list):
                     item = ob.vcolor_plus_palette_coll.add()
                     item.id = len(ob.vcolor_plus_palette_coll) - 1
                     item.saved_color = vcolor
                     item.color = vcolor
+
+                    if index == self.saved_id:
+                        item.id = self.saved_id
+                    else:
+                        item.id = len(ob.vcolor_plus_palette_coll) - 1
 
                     if context.scene.vcolor_plus.rgb_hsv_convert_options == 'rgb':
                         item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
@@ -292,8 +320,8 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
                         item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
 
                 # Reconfigure the active color palette based on previously saved color info
-                if ob.vcolor_plus_custom_index != 0:
-                    ob.vcolor_plus_custom_index += -1
+                #if ob.vcolor_plus_custom_index != 0:
+                #    ob.vcolor_plus_custom_index += -1
 
                 if 'saved_color' in locals():
                     for vcolor in ob.vcolor_plus_palette_coll:
@@ -326,16 +354,15 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
         layer = bm.loops.layers.color[active_ob.data.vertex_colors.active.name]
 
         palette_saved_color = convert_to_plain_array(array_object=active_palette.saved_color)
-        palette_color = convert_to_plain_array(array_object=active_palette.color)
 
         for face in bm.faces:
             for loop in face.loops:
                 reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                 if reconstructed_loop == palette_saved_color:
-                    loop[layer] = palette_color
+                    loop[layer] = active_palette.color
 
-        active_palette.name = f'({round(palette_color[0] * 255)}, {round(palette_color[1] * 255)}, {round(palette_color[2] * 255)}, {round(palette_color[3], 2)})'
+        active_palette.name = f'({round(active_palette.color[0] * 255)}, {round(active_palette.color[1] * 255)}, {round(active_palette.color[2] * 255)}, {round(active_palette.color[3], 2)})'
 
         bmesh.update_edit_mesh(active_ob.data)
 
@@ -436,7 +463,7 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        if context.scene.vcolor_plus.auto_palette_refresh:
+        if context.preferences.addons[__package__].preferences.auto_palette_refresh:
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
@@ -498,7 +525,7 @@ class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
         else: # Apply to Active Color
             vcolor_plus.color_wheel = getattr(vcolor_plus, self.custom_color_name)
 
-            if vcolor_plus.auto_palette_refresh:
+            if context.preferences.addons[__package__].preferences.auto_palette_refresh:
                 bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
@@ -564,7 +591,7 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        if context.scene.vcolor_plus.auto_palette_refresh:
+        if context.preferences.addons[__package__].preferences.auto_palette_refresh:
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
@@ -651,6 +678,13 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
                         for loop in face.loops:
                             loop[layer] = random_color
 
+                elif vcolor_plus.generation_type == 'per_vertex':
+                    for vert in bm.verts:
+                        random_color = [random(), random(), random(), 1]
+
+                        for loop in vert.link_loops:
+                            loop[layer] = random_color
+
                 elif vcolor_plus.generation_type == 'per_point':
                     for face in bm.faces:
                         for loop in face.loops:
@@ -665,7 +699,7 @@ class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
-        if vcolor_plus.auto_palette_refresh:
+        if context.preferences.addons[__package__].preferences.auto_palette_refresh:
             bpy.ops.vcolor_plus.refresh_palette_outliner()
         return {'FINISHED'}
 

@@ -220,17 +220,6 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         )
     )
 
-    auto_palette_refresh: BoolProperty(
-        name="Auto Palette Refresh",
-        description=
-        '''If disabled, will stop updating the entire palette outliner whenever you run an operator.
-        
-Useful if your scene is slowing down.
-        
-Certain items may still be changed if the code interacts with the outliner directly''',
-        default=True
-    )
-
     rgb_hsv_convert_options: EnumProperty(
         items=(
             ('hsv', "HSV", ""),
@@ -244,7 +233,7 @@ Certain items may still be changed if the code interacts with the outliner direc
             ('per_uv_shell', "Per UV Shell  (Random Color)", ""),
             ('per_uv_border', "Per UV Border", ""),
             ('per_face', "Per Face", ""),
-            #('per_vertex', "Per Vertex", ""),
+            ('per_vertex', "Per Vertex", ""),
             ('per_point', "Per Point (Face Corner)", "")
         ),
         name='Generation Type'
@@ -449,11 +438,12 @@ Certain items may still be changed if the code interacts with the outliner direc
 
 class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
     def update_palette_color(self, context):
-        if (self.color[0], self.color[1], self.color[2], self.color[3]) != (self.saved_color[0], self.saved_color[1], self.saved_color[2], self.saved_color[3]):
+        if [*self.color] != [*self.saved_color]:
             bpy.ops.vcolor_plus.change_outliner_color(id=self.id)
 
-            if (self.color[0], self.color[1], self.color[2], self.color[3]) != (1, 1, 1, 1) or (self.saved_color[0], self.saved_color[1], self.saved_color[2], self.saved_color[3]) != (1, 1, 1, 1):
-                bpy.ops.vcolor_plus.refresh_palette_outliner()
+            # This only somewhat fixes the clearing [1,1,1,1] val colors? Stange.
+            if [*self.color[:3]] != [1, 1, 1] and [*self.saved_color[:3]] != [1, 1, 1]:
+                bpy.ops.vcolor_plus.refresh_palette_outliner(saved_id=self.id, saved_new_color=self.color)
 
     id: IntProperty()
 
@@ -537,8 +527,55 @@ class VCOLORPLUS_OT_add_preset(AddPresetBase, bpy.types.Operator):
 class VCOLORPLUS_MT_addon_prefs(bpy.types.AddonPreferences):
     bl_idname=__package__
 
+    tabs: EnumProperty(
+        items=(
+            ('general', "General", "Information & Settings"),
+            ('keymaps', "Keymaps", "Keymap Customization")
+        )
+    )
+
+    auto_palette_refresh: BoolProperty(
+        name="Auto Palette Refresh",
+        description=
+        '''If disabled, will stop updating the entire palette outliner whenever you run an operator.
+
+Useful if your scene is slowing down.
+
+Certain items may still be changed if the code interacts with the outliner directly''',
+        default=True
+    )
+
+    max_outliner_items: IntProperty(
+        name="Max Outliner Items",
+        description='The maximum amount of items allowed in the Palette Outliner per object',
+        default=25,
+        min=1,
+        max=100
+    )
+
     def draw(self, context):
-        VCOLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, self.layout)
+        layout = self.layout
+
+        row = layout.row()
+        row.prop(self, "tabs", expand=True)
+
+        if self.tabs == 'general':
+            col = layout.column()
+
+            box = col.box()
+            split = box.split()
+            split.label(text='Automatically Refresh Palette Outliner')
+            split.prop(self, 'auto_palette_refresh')
+
+            col.separator(factor=.5)
+
+            box = col.box()
+            split = box.split()
+            split.label(text='Maximum # of Items in Palette Outliner')
+            split.prop(self, 'max_outliner_items')
+
+        else: # Keymaps
+            VCOLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, layout)
 
 
 ##################################
