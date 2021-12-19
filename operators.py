@@ -2,7 +2,7 @@
 import bpy, bmesh, colorsys, bpy_extras
 from bpy.types import Operator
 from random import random
-from operator import itemgetter
+#from operator import itemgetter
 
 
 ################################################################################################################
@@ -14,14 +14,14 @@ class OpInfo: # Mix-in class
     bl_options = {'REGISTER', 'UNDO'}
 
 
-# Convert custom datatypes to plain 4-size arrays
-def convert_to_plain_array(array_object):
+def convert_to_plain_array(array_object) -> list:
+    '''Convert custom datatypes to plain 4-size arrays'''
     converted_array = [array_object[0], array_object[1], array_object[2], array_object[3]]
     return converted_array
 
 
-# Get VColor Set/Layer or generate one if it doesn't already exist
-def find_or_create_vcolor_set(bm, active_ob):
+def find_or_create_vcolor_set(bm, active_ob: bpy.types.Object) -> bmesh.types.BMLayerItem:
+    '''Get VColor Set/Layer or generate one if it doesn't already exist'''
     if not active_ob.data.vertex_colors:
         color_layer = bm.loops.layers.color.new("Col")
 
@@ -340,11 +340,11 @@ class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
     bl_label = ""
     bl_options = {'INTERNAL'}
 
-    id: bpy.props.IntProperty()
+    saved_id: bpy.props.IntProperty()
 
     def execute(self, context):
         active_ob = context.object
-        active_palette = active_ob.vcolor_plus_palette_coll[self.id]
+        active_palette = active_ob.vcolor_plus_palette_coll[self.saved_id]
         saved_context_mode = active_ob.mode
 
         bpy.ops.object.mode_set(mode = 'EDIT')

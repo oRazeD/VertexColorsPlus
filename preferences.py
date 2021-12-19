@@ -439,11 +439,11 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
     def update_palette_color(self, context):
         if [*self.color] != [*self.saved_color]:
-            bpy.ops.vcolor_plus.change_outliner_color(id=self.id)
+            bpy.ops.vcolor_plus.change_outliner_color(saved_id=self.id)
 
-            # This only somewhat fixes the clearing [1,1,1,1] val colors? Stange.
+            # This only somewhat fixes the clearing [1,1,1,1] val colors? Strange.
             if [*self.color[:3]] != [1, 1, 1] and [*self.saved_color[:3]] != [1, 1, 1]:
-                bpy.ops.vcolor_plus.refresh_palette_outliner(saved_id=self.id, saved_new_color=self.color)
+                bpy.ops.vcolor_plus.refresh_palette_outliner(saved_id=self.saved_color)
 
     id: IntProperty()
 
