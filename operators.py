@@ -12,6 +12,7 @@ from random import random
 
 class OpInfo: # Mix-in class
     bl_options = {'REGISTER', 'UNDO'}
+    bl_label = ""
 
 
 def convert_to_plain_array(array_object) -> list:
@@ -34,7 +35,6 @@ def find_or_create_vcolor_set(bm, active_ob: bpy.types.Object) -> bmesh.types.BM
 class VCOLORPLUS_OT_switch_to_paint_or_edit(OpInfo, Operator):
     """Switch to vertex painting, this option automates some scene settings and links the active color with the brush color"""
     bl_idname = "vcolor_plus.switch_to_paint_or_edit"
-    bl_label = ""
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -138,7 +138,6 @@ class VCOLORPLUS_OT_edit_color_keymap_placeholder(OpInfo, Operator):
 class VCOLORPLUS_OT_quick_color_switch(OpInfo, Operator):
     """Switch between your main and alternate color"""
     bl_idname = "vcolor_plus.quick_color_switch"
-    bl_label = ""
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -337,7 +336,6 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
 
 class VCOLORPLUS_OT_change_outliner_color(OpInfo, Operator):
     bl_idname = "vcolor_plus.change_outliner_color"
-    bl_label = ""
     bl_options = {'INTERNAL'}
 
     saved_id: bpy.props.IntProperty()
@@ -509,7 +507,6 @@ class VCOLORPLUS_OT_convert_to_vgroup(OpInfo, Operator):
 class VCOLORPLUS_OT_custom_color_apply(OpInfo, Operator):
     """Apply the color to your current selection/Active Color"""
     bl_idname = "vcolor_plus.custom_color_apply"
-    bl_label = ""
 
     custom_color_name: bpy.props.StringProperty(options={'HIDDEN'})
 
@@ -596,10 +593,50 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
         return {'FINISHED'}
 
 
+class VCOLORPLUS_OT_dirty_vertex_color(OpInfo, Operator):
+    """Generate dirty vertex color"""
+    bl_idname = "vcolor_plus.dirty_vertex_color"
+    bl_label = "Dirty Vertex Colors"
+    bl_options = {'INTERNAL', 'REGISTER', 'UNDO'}
+
+    blur_strength : bpy.props.FloatProperty(default=1.0, name='Blur Strength')
+    blur_iterations : bpy.props.IntProperty(default=1, name='Blur Iterations')
+    clean_angle : bpy.props.FloatProperty(default=3.14159, name='Clean Angle', subtype='ANGLE')
+    dirt_angle : bpy.props.FloatProperty(default=0.0, name='Dirt Angle')
+    dirt_only : bpy.props.BoolProperty(default=False, name='Dirt Only')
+    normalize : bpy.props.BoolProperty(default=True, name='Normalize')
+    selection_only : bpy.props.BoolProperty(default=False, name='Use Selection')
+
+    def execute(self, context):
+        if not bpy.ops.paint.vertex_paint_toggle.poll():
+            self.report({'ERROR'}, "Something went wrong, could not run operator")
+            return {'CANCELLED'}
+
+        saved_context_mode = context.mode
+
+        context.object.data.use_paint_mask = True if self.selection_only else False 
+
+        if context.mode != 'PAINT_VERTEX':
+            bpy.ops.paint.vertex_paint_toggle()
+
+        bpy.ops.paint.vertex_color_dirt(
+            blur_strength=self.blur_strength,
+            blur_iterations=self.blur_iterations,
+            clean_angle=self.clean_angle,
+            dirt_angle=self.dirt_angle,
+            dirt_only=self.dirt_only,
+            normalize=self.normalize
+        )
+
+        if saved_context_mode != 'PAINT_VERTEX':
+            bpy.ops.object.editmode_toggle()
+        return {'FINISHED'}
+
+
 class VCOLORPLUS_OT_generate_vcolor(OpInfo, Operator):
     """Generate a VColor mask based on the settings below"""
     bl_idname = "vcolor_plus.generate_vcolor"
-    bl_label = ""
+    bl_label = "Generate VColor"
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -726,6 +763,7 @@ classes = (
     VCOLORPLUS_OT_convert_to_vgroup,
     VCOLORPLUS_OT_custom_color_apply,
     VCOLORPLUS_OT_apply_color_to_border,
+    VCOLORPLUS_OT_dirty_vertex_color,
     VCOLORPLUS_OT_generate_vcolor
 )
 

@@ -234,7 +234,8 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
             ('per_uv_border', "Per UV Border", ""),
             ('per_face', "Per Face", ""),
             ('per_vertex', "Per Vertex", ""),
-            ('per_point', "Per Point (Face Corner)", "")
+            ('per_point', "Per Point (Face Corner)", ""),
+            ('dirty_color', "Dirty Vertex Colors", "")
         ),
         name='Generation Type'
     )

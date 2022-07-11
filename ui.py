@@ -38,12 +38,12 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         col = layout.column(align=True)
 
-        split = col.split(factor=.6, align=True)
+        split = col.split(factor=.75, align=True)
         split.scale_y = 1.3
         edit_color_op = split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK')
         edit_color_op.edit_type = 'apply'
         edit_color_op.variation_value = 'color_wheel'
-        split.operator("vcolor_plus.edit_color", text='Clear Sel', icon='X').edit_type = 'clear'
+        split.operator("vcolor_plus.edit_color", text='', icon='X').edit_type = 'clear'
 
         box = col.box()
 
@@ -209,19 +209,19 @@ class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
 
         VCOLORPLUS_PT_presets.draw_menu(col, text='Custom Palette Presets')
 
-        row = col.row(align=True)
-        row.enabled = False
-        row.operator("vcolor_plus.vcolor_shading", text='Import', icon='IMPORT')
-        row.operator("vcolor_plus.vcolor_shading", text='Export', icon='EXPORT')
+        #row = col.row(align=True)
+        #row.enabled = False
+        #row.operator("vcolor_plus.vcolor_shading", text='Import', icon='IMPORT')
+        #row.operator("vcolor_plus.vcolor_shading", text='Export', icon='EXPORT')
 
         col = layout.column(align=True)
 
-        col.separator(factor=.5)
+        #col.separator(factor=.5)
 
         row = col.row(align=True)
         row.prop(vcolor_plus, 'custom_palette_apply_options', expand=True)
 
-        col.separator(factor=.5)
+        col.separator(factor=.2)
 
         split = col.split(align=True)
         row = split.row(align=True)
@@ -389,7 +389,11 @@ class VCOLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
 
         col = layout.column(align=True)
         col.scale_y = 1.3
-        col.operator('vcolor_plus.generate_vcolor', text='Generate VColor', icon='GROUP_VCOL')
+
+        if vcolor_plus.generation_type != 'dirty_color':
+            col.operator('vcolor_plus.generate_vcolor', icon='GROUP_VCOL')
+        else:
+            col.operator('vcolor_plus.dirty_vertex_color', icon='GROUP_VCOL')
 
         row = col.row(align=True)
         row.scale_y = .8
