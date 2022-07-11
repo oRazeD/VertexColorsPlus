@@ -72,9 +72,14 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
 
     variation_value: bpy.props.StringProperty(options={'HIDDEN'})
     
-    def change_vcolor(self, context, layer, loop, rgb_value):
+    def change_vcolor(self, layer, loop, rgb_value):
         if self.edit_type == 'apply' and loop.vert.select or self.edit_type == 'apply_all':
-            loop[layer] = rgb_value
+            if self.variation_value == 'alpha_only':
+                loop[layer] = (loop[layer][0], loop[layer][1], loop[layer][2], rgb_value[3])
+            elif self.variation_value == 'color_only':
+                loop[layer] = (rgb_value[0], rgb_value[1], rgb_value[2], loop[layer][3])
+            else:
+                loop[layer] = rgb_value
 
         elif self.edit_type == 'clear' and loop.vert.select or self.edit_type == 'clear_all':
             loop[layer] = [1, 1, 1, 1]
@@ -88,35 +93,39 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
         context.object.select_set(True)
 
         for ob in context.selected_objects:
-            if ob.type == 'MESH':
-                bm = bmesh.new()
-                bm.from_mesh(ob.data)
+            if ob.type != 'MESH':
+                continue
 
-                # Get the RGB value based on the property string given
-                if self.variation_value:
-                    if self.variation_value.startswith('color_var'):
-                        variation_prop = getattr(vcolor_plus, self.variation_value)
+            bm = bmesh.new()
+            bm.from_mesh(ob.data)
 
-                        rgb_value = (variation_prop[0], variation_prop[1], variation_prop[2], vcolor_plus.color_wheel[3])
-                    else:
-                        rgb_value = getattr(vcolor_plus, self.variation_value)
-                else:
-                    rgb_value = [1, 1, 1, 1]
+            # Get the RGB value based on the property given
+            rgb_value = [1, 1, 1, 1]
+            if self.variation_value:
+                try:
+                    rgb_value = getattr(vcolor_plus, self.variation_value)
+                except AttributeError:
+                    rgb_value = getattr(vcolor_plus, 'color_wheel')
 
-                layer = find_or_create_vcolor_set(bm, ob)
+                if self.variation_value == 'value_var':
+                    rgb_value = (rgb_value[0], rgb_value[1], rgb_value[2], vcolor_plus.color_wheel[3])
+                elif self.variation_value == 'alpha_var':
+                    rgb_value = (vcolor_plus.color_wheel[0], vcolor_plus.color_wheel[1], vcolor_plus.color_wheel[2], rgb_value[3])
 
-                # Get application type (smooth/hard) and then apply to the corresponding geometry
-                if vcolor_plus.interpolation_type == 'hard':
-                    for face in bm.faces:
-                        if face.select or self.edit_type == 'clear_all':
-                            for loop in face.loops:
-                                self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
-                else: # Smooth
-                    for face in bm.faces:
+            layer = find_or_create_vcolor_set(bm, ob)
+
+            # Get application type (smooth/hard) and then apply to the corresponding geometry
+            if vcolor_plus.interpolation_type == 'hard':
+                for face in bm.faces:
+                    if face.select or self.edit_type == 'clear_all':
                         for loop in face.loops:
-                            self.change_vcolor(context, layer=layer, loop=loop, rgb_value=rgb_value)
+                            self.change_vcolor(layer=layer, loop=loop, rgb_value=rgb_value)
+            else: # Smooth
+                for face in bm.faces:
+                    for loop in face.loops:
+                        self.change_vcolor(layer=layer, loop=loop, rgb_value=rgb_value)
 
-                bm.to_mesh(ob.data)
+            bm.to_mesh(ob.data)
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
 
@@ -596,7 +605,7 @@ class VCOLORPLUS_OT_apply_color_to_border(OpInfo, Operator):
 class VCOLORPLUS_OT_dirty_vertex_color(OpInfo, Operator):
     """Generate dirty vertex color"""
     bl_idname = "vcolor_plus.dirty_vertex_color"
-    bl_label = "Dirty Vertex Colors"
+    bl_label = "Generate VColor"
     bl_options = {'INTERNAL', 'REGISTER', 'UNDO'}
 
     blur_strength : bpy.props.FloatProperty(default=1.0, name='Blur Strength')

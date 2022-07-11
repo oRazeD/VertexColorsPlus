@@ -99,10 +99,19 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
 
         col = layout.column(align=True)
         col.scale_y = 1.1
-        edit_color_op = col.operator("vcolor_plus.edit_color", text='Apply to All', icon='CHECKMARK')
+        edit_color_op = col.operator("vcolor_plus.edit_color", text='Apply All', icon='CHECKMARK')
         edit_color_op.edit_type = 'apply_all'
         edit_color_op.variation_value = 'color_wheel'
         col.operator("vcolor_plus.edit_color", text='Clear All', icon='X').edit_type = 'clear_all'
+
+        row = col.row(align=True)
+        edit_color_op = row.operator("vcolor_plus.edit_color", text='Fill Only Color')
+        edit_color_op.edit_type = 'apply'
+        edit_color_op.variation_value = 'color_only'
+
+        edit_alpha_op = row.operator("vcolor_plus.edit_color", text='Fill Only Alpha')
+        edit_alpha_op.edit_type = 'apply'
+        edit_alpha_op.variation_value = 'alpha_only'
 
         box = layout.box()
         col = box.column(align=True)
@@ -114,18 +123,29 @@ class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
 
         box = layout.box()
         col = box.column(align=True)
-        col.label(text=' Apply Value Variation')
+        col.label(text=' Apply Variation')
 
         row = col.row(align=True)
         row.enabled = False if context.mode != 'EDIT_MESH' else True
-        
-        edit_color = row.operator('vcolor_plus.edit_color', text='', icon='CHECKMARK')
-        edit_color.edit_type = 'apply'
-        edit_color.variation_value = 'color_var'
+
+        edit_value = row.operator('vcolor_plus.edit_color', text='', icon='CHECKMARK')
+        edit_value.edit_type = 'apply'
+        edit_value.variation_value = 'value_var'
 
         split = row.split(factor=.75, align=True)
-        split.prop(vcolor_plus, 'color_var_slider')
-        split.prop(vcolor_plus, 'color_var')
+        split.prop(vcolor_plus, 'value_var_slider', text='Value')
+        split.prop(vcolor_plus, 'value_var')
+
+        row = col.row(align=True)
+        row.enabled = False if context.mode != 'EDIT_MESH' else True
+
+        edit_alpha = row.operator('vcolor_plus.edit_color', text='', icon='CHECKMARK')
+        edit_alpha.edit_type = 'apply'
+        edit_alpha.variation_value = 'alpha_var'
+
+        split = row.split(factor=.75, align=True)
+        split.prop(vcolor_plus, 'alpha_var_slider', text='Alpha')
+        split.prop(vcolor_plus, 'alpha_var')
 
 
 class VCOLORPLUS_UL_items(UIList):
@@ -468,7 +488,7 @@ class VCOLORPLUS_MT_pie_menu(Menu):
         row = col.row(align=True)   
         row.scale_y = 1.25
 
-        edit_color_op = row.operator("vcolor_plus.edit_color", text='Apply to All', icon='CHECKMARK')
+        edit_color_op = row.operator("vcolor_plus.edit_color", text='Apply All', icon='CHECKMARK')
         edit_color_op.edit_type = 'apply_all'
         edit_color_op.variation_value = 'color_wheel'
         row.operator("vcolor_plus.edit_color", text='Clear All', icon='PANEL_CLOSE').edit_type = 'clear_all'
@@ -487,16 +507,16 @@ class VCOLORPLUS_MT_pie_menu(Menu):
 
         box2 = col.box()
         col = box2.column(align=True)
-        col.label(text=' Apply Value Variation')
+        col.label(text=' Apply Variation')
         
         row = col.row(align=True)
         edit_color = row.operator('vcolor_plus.edit_color', text='', icon='CHECKMARK')
         edit_color.edit_type = 'apply'
-        edit_color.variation_value = 'color_var'
+        edit_color.variation_value = 'value_var'
 
         split = row.split(factor=.8, align=True)
-        split.prop(vcolor_plus, 'color_var_slider')
-        split.prop(vcolor_plus, 'color_var')
+        split.prop(vcolor_plus, 'value_var_slider')
+        split.prop(vcolor_plus, 'value_var')
         #2 - BOTTOM
         pie.operator("vcolor_plus.edit_color", text='Clear Selection', icon='PANEL_CLOSE').edit_type = 'clear'
         #8 - TOP

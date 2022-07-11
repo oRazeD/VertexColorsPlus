@@ -186,15 +186,23 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         # Convert the RGB value to HSV for easy tweaking
         color_wheel_hsv = colorsys.rgb_to_hsv(self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
         
-        # Set value of color variation preview
-        self.color_var = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], self.color_var_slider)
+        # Set value/alpha variation preview
+        self.value_var = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], self.value_var_slider)
+        self.alpha_var = (*(colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], color_wheel_hsv[2])), self.alpha_var_slider)
 
     def update_color_variation(self, context): # extension of update_color_wheel, but using the variation value
         self.update_color_wheel(context)
 
         # Update selected vertices if live color tweak is on
         if self.live_color_tweak:
-            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_var')
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='value_var')
+
+    def update_alpha_variation(self, context): # extension of update_color_wheel, but using the variation value
+        self.update_color_wheel(context)
+
+        # Update selected vertices if live color tweak is on
+        if self.live_color_tweak:
+            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='alpha_var')
 
     def palette_update(self, context):
         bpy.ops.vcolor_plus.refresh_palette_outliner()
@@ -275,19 +283,39 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         max=1
     )
 
-    color_var_slider: FloatProperty(
+    value_var_slider: FloatProperty(
         name="",
         description='Applies value variation to the selection without the need to change the Active Color (WARNING: This works with Live Tweak)',
         default=.5,
         min=0,
         max=1,
+        subtype='FACTOR',
         update=update_color_variation
     )
 
-    color_var: FloatVectorProperty(
+    value_var: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
         default=[.5, .5, .5],
+        min=0,
+        max=1
+    )
+
+    alpha_var_slider: FloatProperty(
+        name="",
+        description='Applies alpha variation to the selection without the need to change the Active Color (WARNING: This works with Live Tweak)',
+        default=0,
+        min=0,
+        max=1,
+        subtype='FACTOR',
+        update=update_alpha_variation
+    )
+
+    alpha_var: FloatVectorProperty(
+        name="",
+        subtype='COLOR_GAMMA',
+        default=[0, 0, 0, .5],
+        size=4,
         min=0,
         max=1
     )
