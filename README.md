@@ -19,9 +19,9 @@ Vertex Colors Plus is a tool for easily generating Vertex Color on your mesh wit
 	- Delete outliner VColor from entire object
 	- Convert outliner VColor to VGroup for manipulation with things like modifiers
 	- HSV/RGB values preview switch
-- Integration with Vertex Paint Mode for uninterrupted workflow
 - Many alternative methods of applying VColor
-	- Apply with Value Variation without changing the Active Color
+	- Apply with Value or Alpha Variation without changing the Active Color
+	- Apply only RGB or A without changing the Active Color
 	- Apply to Inner/Outer Selection Border
 - Generate random VColor based on many contexts
 	- Per UV Shell
@@ -29,9 +29,11 @@ Vertex Colors Plus is a tool for easily generating Vertex Color on your mesh wit
 	- Per Face
 	- Per Vertex
 	- Per Point (Face Corner)
+	- Extended Dirty Vertex Colors
 - A large customizable color palette with any color
 	- Includes a preset import/exporter for generating & managing color palettes on the fly (useful for teams)
 	- Ability to apply each color to the Active Color or to just fill the current selection
+- Integration with Vertex Paint Mode for uninterrupted workflow
 - Integration with Daniel Bystedt's [Bake to Vertex Color](https://3dbystedt.gumroad.com/l/zdgxg) add-on.
 - Several keymaps and a custom pie menu
 - ...and more!
