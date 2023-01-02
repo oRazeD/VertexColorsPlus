@@ -177,7 +177,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
     def update_color_wheel(self, context):
         # Update selected vertices if live color tweak is on
-        if self.live_color_tweak:
+        if self.live_color_tweak and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
             bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_wheel')
 
         # Update draw brush in vertex color mode
@@ -194,14 +194,14 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         self.update_color_wheel(context)
 
         # Update selected vertices if live color tweak is on
-        if self.live_color_tweak:
+        if self.live_color_tweak and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
             bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='value_var')
 
     def update_alpha_variation(self, context): # extension of update_color_wheel, but using the variation value
         self.update_color_wheel(context)
 
         # Update selected vertices if live color tweak is on
-        if self.live_color_tweak:
+        if self.live_color_tweak and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
             bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='alpha_var')
 
     def palette_update(self, context):
@@ -231,7 +231,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     rgb_hsv_convert_options: EnumProperty(
         items=(
             ('hsv', "HSV", ""),
-            ('rgb', "RGB", "")
+            ('rgb', "RGBA", "")
         ),
         update=palette_update
     )

@@ -17,12 +17,10 @@ class PanelInfo:
 class VCOLORPLUS_PT_ui(PanelInfo, Panel):
     bl_label = 'Vertex Colors Plus'
 
-    @classmethod
-    def poll(cls, context):
-        return context.mode in {'EDIT_MESH', 'PAINT_VERTEX'}
-
     def draw(self, context):
         vcolor_plus = context.scene.vcolor_plus
+
+        in_edit_mode = False if context.mode != 'EDIT_MESH' else True
 
         layout = self.layout
 
@@ -40,6 +38,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 
         split = col.split(factor=.75, align=True)
         split.scale_y = 1.3
+        split.enabled = in_edit_mode
         edit_color_op = split.operator("vcolor_plus.edit_color", text='Fill Selection', icon='CHECKMARK')
         edit_color_op.edit_type = 'apply'
         edit_color_op.variation_value = 'color_wheel'
@@ -66,6 +65,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split_row.prop(vcolor_plus, 'alt_color_wheel')
 
         split = col2.split()
+        split.enabled = in_edit_mode
         split.separator()
         split.prop(vcolor_plus, 'live_color_tweak')
 
@@ -75,7 +75,7 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
         split.label(text=' Interpolation')
 
         row = split.row()
-        row.enabled = False if context.mode != 'EDIT_MESH' else True
+        row.enabled = in_edit_mode
         row.prop(vcolor_plus, 'interpolation_type', expand=True)
         
         if vcolor_plus.interpolation_type == 'hard':
@@ -91,6 +91,10 @@ class VCOLORPLUS_PT_ui(PanelInfo, Panel):
 class VCOLORPLUS_PT_quick_apply(PanelInfo, Panel):
     bl_label = 'Quick Apply'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode in ('EDIT_MESH', 'PAINT_VERTEX')
 
     def draw(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -163,6 +167,10 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
     bl_label = 'Palette Outliner'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
 
+    @classmethod
+    def poll(cls, context):
+        return context.mode in ('EDIT_MESH', 'PAINT_VERTEX')
+
     def draw(self, context):
         layout = self.layout
 
@@ -170,20 +178,19 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         vcolor_prefs = context.preferences.addons[__package__].preferences
 
         disable_ui = False
-
-        try:
-            _idx_check = ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index]
-        except (IndexError, ValueError):
-            disable_ui = True
-
         if not len(ob.vcolor_plus_palette_coll):
             disable_ui = True
+        else:
+            try:
+                _idx_check = ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index]
+            except (IndexError, ValueError):
+                disable_ui = True
 
-        col = layout.column()
+        col = layout.column(align=True)
+        col.scale_y = 1.2
         col.operator("vcolor_plus.refresh_palette_outliner", text='Refresh Palette', icon='FILE_REFRESH')
 
         row = layout.row()
-
         col = row.column(align=True)
         col.template_list("VCOLORPLUS_UL_items", "", ob, "vcolor_plus_palette_coll", ob, "vcolor_plus_custom_index", rows=4)
 
@@ -219,6 +226,10 @@ class VCOLORPLUS_PT_palette_outliner(PanelInfo, Panel):
 class VCOLORPLUS_PT_custom_palette(PanelInfo, Panel):
     bl_label = 'Customizable Palette'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode in {'EDIT_MESH', 'PAINT_VERTEX'}
 
     def draw(self, context):
         vcolor_plus = context.scene.vcolor_plus
@@ -328,7 +339,7 @@ class VCOLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
 
         scene = context.scene
 
-        if 'bakeToVertexColor_1_0_8' in bpy.context.preferences.addons:
+        if 'bakeToVertexColor_1_0_8' in context.preferences.addons:
             row = layout.row()
             row.label(text="Bake Type")
             row.prop(scene.bake_to_vertex_color_props, "bake_pass", text="")
@@ -379,24 +390,6 @@ class VCOLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
             box.label(text='or you do not have the latest version')
 
 
-class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
-    bl_label = 'Vertex Color Sets'
-    bl_parent_id = 'VCOLORPLUS_PT_ui'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-
-        row = layout.row()
-
-        col = row.column()
-        col.template_list("MESH_UL_vcols", "vcols", context.object.data, "vertex_colors", context.object.data.vertex_colors, "active_index", rows=4)
-
-        col = row.column(align=True)
-        col.operator("mesh.vertex_color_add", icon='ADD', text="")
-        col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
-
-
 class VCOLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
     bl_label = 'Generate Vertex Color'
     bl_parent_id = 'VCOLORPLUS_PT_ui'
@@ -425,6 +418,58 @@ class VCOLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
             row = col.row()
             row.scale_y = .8
             row.prop(vcolor_plus, 'generation_per_uv_border_options', expand=True)
+
+
+class VCOLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
+    bl_label = 'Vertex Color Sets'
+    bl_parent_id = 'VCOLORPLUS_PT_ui'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        if not context.object:
+            layout.label(text='No Active Object is selected', icon='INFO')
+            return
+
+        row = layout.row()
+        col = row.column()
+
+        mesh = context.object.data
+        if bpy.app.version < (3, 2, 0):
+            col.template_list(
+                "MESH_UL_vcols",
+                "vcols",
+                mesh,
+                "vertex_colors",
+                mesh.vertex_colors,
+                "active_index",
+                rows=4
+            )
+
+            col = row.column(align=True)
+            col.operator("mesh.vertex_color_add", icon='ADD', text="")
+            col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
+        else:
+            col.template_list(
+                "MESH_UL_color_attributes",
+                "color_attributes",
+                mesh,
+                "color_attributes",
+                mesh.color_attributes,
+                "active_color_index",
+                rows=3,
+            )
+
+            col = row.column(align=True)
+            col.operator("geometry.color_attribute_add", icon='ADD', text="")
+            col.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
+
+            col.separator()
+
+            col.menu("MESH_MT_color_attribute_context_menu", icon='DOWNARROW_HLT', text="")
+
+            # self.draw_attribute_warnings(context, layout) TODO
 
 
 class VCOLORPLUS_MT_pie_menu(Menu):
