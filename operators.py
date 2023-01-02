@@ -2,7 +2,9 @@
 import bpy, bmesh, colorsys, bpy_extras
 from bpy.types import Operator
 from random import random
-#from operator import itemgetter
+
+
+BLANK_ARRAY = (1,1,1,1)
 
 
 ################################################################################################################
@@ -73,7 +75,11 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
     variation_value: bpy.props.StringProperty(options={'HIDDEN'})
     
     def change_vcolor(self, layer, loop, rgb_value):
-        if self.edit_type == 'apply' and loop.vert.select or self.edit_type == 'apply_all':
+        if (self.edit_type == 'apply' and loop.vert.select) or self.edit_type == 'apply_all':
+            for idx, value in enumerate(rgb_value):
+                if value is None:
+                    rgb_value[idx] = loop[layer][idx]
+
             if self.variation_value == 'alpha_only':
                 loop[layer] = (loop[layer][0], loop[layer][1], loop[layer][2], rgb_value[3])
             elif self.variation_value == 'color_only':
@@ -81,13 +87,13 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
             else:
                 loop[layer] = rgb_value
 
-        elif self.edit_type == 'clear' and loop.vert.select or self.edit_type == 'clear_all':
-            loop[layer] = [1, 1, 1, 1]
+        elif (self.edit_type == 'clear' and loop.vert.select) or self.edit_type == 'clear_all':
+            loop[layer] = BLANK_ARRAY
 
     def execute(self, context):
         vcolor_plus = context.scene.vcolor_plus
-        saved_context_mode = context.object.mode
 
+        saved_context_mode = context.object.mode
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
         context.object.select_set(True)
@@ -100,7 +106,7 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
             bm.from_mesh(ob.data)
 
             # Get the RGB value based on the property given
-            rgb_value = [1, 1, 1, 1]
+            rgb_value = BLANK_ARRAY
             if self.variation_value:
                 try:
                     rgb_value = getattr(vcolor_plus, self.variation_value)
@@ -108,9 +114,9 @@ class VCOLORPLUS_OT_edit_color(OpInfo, Operator):
                     rgb_value = getattr(vcolor_plus, 'color_wheel')
 
                 if self.variation_value == 'value_var':
-                    rgb_value = (rgb_value[0], rgb_value[1], rgb_value[2], vcolor_plus.color_wheel[3])
+                    rgb_value = [rgb_value[0], rgb_value[1], rgb_value[2], None]
                 elif self.variation_value == 'alpha_var':
-                    rgb_value = (vcolor_plus.color_wheel[0], vcolor_plus.color_wheel[1], vcolor_plus.color_wheel[2], rgb_value[3])
+                    rgb_value = [None, None, None, rgb_value[3]]
 
             layer = find_or_create_vcolor_set(bm, ob)
 
@@ -210,12 +216,12 @@ class VCOLORPLUS_OT_get_active_color(OpInfo, Operator):
             active_selection = bm.select_history[-1]
         except IndexError:
             self.report({'ERROR'}, "There is no Active Vertex selected")
-            return{'CANCELLED'}
+            return {'CANCELLED'}
 
         # Haven't actually tested what this is for, maybe instancing?
         if not isinstance(active_selection, bmesh.types.BMVert):
             self.report({'ERROR'}, "There is more than one Active Vertex selected, please select only one active vertex")
-            return{'CANCELLED'}
+            return {'CANCELLED'}
 
         # Get active vertex's color
         for face in bm.faces:
@@ -248,96 +254,94 @@ class VCOLORPLUS_OT_refresh_palette_outliner(OpInfo, Operator):
     saved_id: bpy.props.IntProperty(default=-1)
 
     def execute(self, context):
-        saved_context_mode = context.object.mode
         vcolor_prefs = context.preferences.addons[__package__].preferences
 
+        saved_context_mode = context.object.mode
         bpy.ops.object.mode_set(mode = 'EDIT')
 
         for ob in context.selected_objects:
-            if ob.type == 'MESH':
-                
-                # Clear palette outliner list
-                ob.vcolor_plus_palette_coll.clear()
+            if ob.type != 'MESH':
+                continue
 
-                bm = bmesh.from_edit_mesh(ob.data)
+            # Clear palette outliner list
+            ob.vcolor_plus_palette_coll.clear()
 
-                layer = find_or_create_vcolor_set(bm, ob)
+            bm = bmesh.from_edit_mesh(ob.data)
+            layer = find_or_create_vcolor_set(bm, ob)
 
-                # Preserve the original index color value
-                if len(ob.vcolor_plus_palette_coll):
-                    saved_color = convert_to_plain_array(array_object=ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index].color)
+            # Preserve the original index color value
+            if len(ob.vcolor_plus_palette_coll):
+                saved_color = convert_to_plain_array(array_object=ob.vcolor_plus_palette_coll[ob.vcolor_plus_custom_index].color)
 
-                vcolor_list = []
+            vcolor_list = []
+            message_sent = False
+            for face in bm.faces:
+                if message_sent:
+                    break
 
-                message_sent = False
-
-                for face in bm.faces:
-                    if message_sent:
+                for loop in face.loops:
+                    if len(vcolor_list) > vcolor_prefs.max_outliner_items:
+                        message_sent = True
+                        self.report({'WARNING'}, f"Maximum amount of Palette Outliner vertex colors reached ({vcolor_prefs.max_outliner_items})")
                         break
 
-                    for loop in face.loops:
-                        if len(vcolor_list) == vcolor_prefs.max_outliner_items:
-                            message_sent = True
-                            self.report({'WARNING'}, f"Maximum amount of Palette Outliner vertex colors reached ({vcolor_prefs.max_outliner_items})")
-                            break
+                    reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
-                        reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
+                    if reconstructed_loop not in vcolor_list and reconstructed_loop != BLANK_ARRAY:
+                        vcolor_list.append(reconstructed_loop)
 
-                        if reconstructed_loop not in vcolor_list and reconstructed_loop != [1, 1, 1, 1]:
-                            vcolor_list.append(reconstructed_loop)
+            # TODO Unused sorting method, currently breaks the outliner in odd ways that I cannot currently solve
 
-                # TODO Unused sorting method, currently breaks the outliner in odd ways that I cannot solve
-
-                # Convert to HSV, sort list by value
-                #vcolor_list_hsv = []
-                #for vcolor in vcolor_list:
-                #    vcolor_list_hsv.append([*colorsys.rgb_to_hsv(*vcolor[:3]), vcolor[3]])
+            # Convert to HSV, sort list by value
+            #vcolor_list_hsv = []
+            #for vcolor in vcolor_list:
+            #    vcolor_list_hsv.append([*colorsys.rgb_to_hsv(*vcolor[:3]), vcolor[3]])
 #
-                ## Separate the values to sort them properly
-                #vcolor_list_hsv_values = [vcolor for vcolor in vcolor_list_hsv if vcolor[0] == 0]
-                #vcolor_list_hsv_values_sorted = sorted(vcolor_list_hsv_values, key=itemgetter(2))
+            ## Separate the values to sort them properly
+            #vcolor_list_hsv_values = [vcolor for vcolor in vcolor_list_hsv if vcolor[0] == 0]
+            #vcolor_list_hsv_values_sorted = sorted(vcolor_list_hsv_values, key=itemgetter(2))
 #
-                #vcolor_list_hsv_hues = [vcolor for vcolor in vcolor_list_hsv if vcolor not in vcolor_list_hsv_values]
-                #vcolor_list_hsv_hues_sorted = sorted(vcolor_list_hsv_hues, key=itemgetter(0))
+            #vcolor_list_hsv_hues = [vcolor for vcolor in vcolor_list_hsv if vcolor not in vcolor_list_hsv_values]
+            #vcolor_list_hsv_hues_sorted = sorted(vcolor_list_hsv_hues, key=itemgetter(0))
 #
-                ## Merge the 2 lists
-                #vcolor_list_hsv_sorted = vcolor_list_hsv_values_sorted + vcolor_list_hsv_hues_sorted
+            ## Merge the 2 lists
+            #vcolor_list_hsv_sorted = vcolor_list_hsv_values_sorted + vcolor_list_hsv_hues_sorted
 #
-                ## Convert back to RGB
-                #vcolor_list_rgb = []
-                #for vcolor in vcolor_list_hsv_sorted:
-                #    vcolor_list_rgb.append([*colorsys.hsv_to_rgb(*vcolor[:3]), vcolor[3]])
+            ## Convert back to RGB
+            #vcolor_list_rgb = []
+            #for vcolor in vcolor_list_hsv_sorted:
+            #    vcolor_list_rgb.append([*colorsys.hsv_to_rgb(*vcolor[:3]), vcolor[3]])
 
-                # Generate palette outliner properties
-                for index, vcolor in enumerate(vcolor_list):
-                    item = ob.vcolor_plus_palette_coll.add()
+            # Generate palette outliner properties
+            for index, vcolor in enumerate(vcolor_list):
+                item = ob.vcolor_plus_palette_coll.add()
+                item.id = len(ob.vcolor_plus_palette_coll) - 1
+                item.saved_color = vcolor
+                item.color = vcolor
+
+                if index == self.saved_id:
+                    item.id = self.saved_id
+                else:
                     item.id = len(ob.vcolor_plus_palette_coll) - 1
-                    item.saved_color = vcolor
-                    item.color = vcolor
 
-                    if index == self.saved_id:
-                        item.id = self.saved_id
-                    else:
-                        item.id = len(ob.vcolor_plus_palette_coll) - 1
+                if context.scene.vcolor_plus.rgb_hsv_convert_options == 'rgb':
+                    item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
+                else:
+                    vcolor_hsv = colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2])
 
-                    if context.scene.vcolor_plus.rgb_hsv_convert_options == 'rgb':
-                        item.name = f'({round(vcolor[0] * 255)}, {round(vcolor[1] * 255)}, {round(vcolor[2] * 255)}, {round(vcolor[3], 2)})'
-                    else:
-                        vcolor_hsv = colorsys.rgb_to_hsv(vcolor[0], vcolor[1], vcolor[2])
+                    item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
 
-                        item.name = f'({round(vcolor_hsv[0], 2)}, {round(vcolor_hsv[1], 2)}, {round(vcolor_hsv[2], 2)}, {round(vcolor[3], 2)})'
+            # Reconfigure the active color palette based on previously saved color info
+            #if ob.vcolor_plus_custom_index != 0:
+            #    ob.vcolor_plus_custom_index += -1
 
-                # Reconfigure the active color palette based on previously saved color info
-                #if ob.vcolor_plus_custom_index != 0:
-                #    ob.vcolor_plus_custom_index += -1
+            if 'saved_color' in locals():
+                for vcolor in ob.vcolor_plus_palette_coll:
+                    converted_vcolor = convert_to_plain_array(array_object=vcolor.color)
 
-                if 'saved_color' in locals():
-                    for vcolor in ob.vcolor_plus_palette_coll:
-                        converted_vcolor = convert_to_plain_array(array_object=vcolor.color)
-
-                        if converted_vcolor == saved_color:
-                            ob.vcolor_plus_custom_index = vcolor.id
-                            break
+                    if converted_vcolor == saved_color:
+                        ob.vcolor_plus_custom_index = vcolor.id
+                        break
 
         bpy.ops.object.mode_set(mode = saved_context_mode)
         return {'FINISHED'}
@@ -464,7 +468,7 @@ class VCOLORPLUS_OT_delete_outliner_color(OpInfo, Operator):
                 reconstructed_loop = convert_to_plain_array(array_object=loop[layer])
 
                 if reconstructed_loop == reconstructed_palette_loop:
-                    loop[layer] = [1, 1, 1, 1]
+                    loop[layer] = BLANK_ARRAY
 
         bmesh.update_edit_mesh(active_ob.data)
 
