@@ -1,9 +1,9 @@
 bl_info = {
     "name":"Vertex Colors Plus",
     "author":"Ethan Simon-Law",
-    "location": "3D View > Sidebar > VColor Plus (Edit Mode)",
-    "version":(0, 1),
-    "blender":(3, 0, 0),
+    "location": "3D View > Sidebar > VColor Plus",
+    "version":(0, 2),
+    "blender":(3, 4, 1),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"
 }
