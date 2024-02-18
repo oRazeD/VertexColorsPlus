@@ -1,8 +1,21 @@
-import bpy, rna_keymap_ui, colorsys
-from bpy.props import BoolProperty, FloatProperty, PointerProperty, FloatVectorProperty, EnumProperty, IntProperty, StringProperty, CollectionProperty
-from bl_operators.presets import AddPresetBase
+import colorsys
+
+import bpy
+import rna_keymap_ui
 from bl_ui.utils import PresetPanel
-from bpy.types import Panel, Menu
+from bl_operators.presets import AddPresetBase
+
+from bpy.types import Panel, AddonPreferences, Context, Menu
+from bpy.props import (
+    BoolProperty,
+    FloatProperty,
+    PointerProperty,
+    FloatVectorProperty,
+    EnumProperty,
+    IntProperty,
+    StringProperty,
+    CollectionProperty
+)
 
 
 ##################################
@@ -10,7 +23,7 @@ from bpy.types import Panel, Menu
 ##################################
 
 
-class VCOLORPLUS_addon_keymaps:
+class COLORPLUS_addon_keymaps:
     _addon_keymaps = []
     _keymaps = {}
 
@@ -60,8 +73,8 @@ class VCOLORPLUS_addon_keymaps:
         if not kc:
             return
 
-        for keymap_name in VCOLORPLUS_addon_keymaps._keymaps.keys():
-            VCOLORPLUS_addon_keymaps.add_hotkey(kc, keymap_name)
+        for keymap_name in COLORPLUS_addon_keymaps._keymaps:
+            COLORPLUS_addon_keymaps.add_hotkey(kc, keymap_name)
 
     @classmethod
     def unregister_keymaps(cls):
@@ -96,7 +109,7 @@ class VCOLORPLUS_addon_keymaps:
                     return
 
             col.label(text=f"No hotkey entry found for {name}")
-            col.operator(TEMPLATE_OT_restore_hotkey.bl_idname,
+            col.operator(COLORPLUS_OT_restore_hotkey.bl_idname,
                          text="Restore keymap",
                          icon='ADD').km_name = km.name
 
@@ -109,7 +122,7 @@ class VCOLORPLUS_addon_keymaps:
 
             else:
                 col.label(text=f"No hotkey entry found for {name}")
-                col.operator(TEMPLATE_OT_restore_hotkey.bl_idname,
+                col.operator(COLORPLUS_OT_restore_hotkey.bl_idname,
                              text="Restore keymap",
                              icon='ADD').km_name = km.name
 
@@ -117,7 +130,7 @@ class VCOLORPLUS_addon_keymaps:
     def draw_keymap_items(wm, layout):
         kc = wm.keyconfigs.user
 
-        for name, items in VCOLORPLUS_addon_keymaps._keymaps.items():
+        for name, items in COLORPLUS_addon_keymaps._keymaps.items():
             kmi_name, kmi_value, km_name = items[:3]
             box = layout.box()
             split = box.split()
@@ -125,18 +138,18 @@ class VCOLORPLUS_addon_keymaps:
             col.label(text=name)
             col.separator()
             km = kc.keymaps[km_name]
-            VCOLORPLUS_addon_keymaps.get_hotkey_entry_item(name, kc, km,
+            COLORPLUS_addon_keymaps.get_hotkey_entry_item(name, kc, km,
                                                            kmi_name, kmi_value, col)
 
 
-class TEMPLATE_OT_restore_hotkey(bpy.types.Operator):
+class COLORPLUS_OT_restore_hotkey(bpy.types.Operator):
     bl_idname = "template.restore_hotkey"
     bl_label = "Restore hotkeys"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     km_name: StringProperty()
 
-    def execute(self, context):
+    def execute(self, context: Context):
         context.preferences.active_section = 'KEYMAP'
         wm = context.window_manager
         kc = wm.keyconfigs.addon
@@ -148,14 +161,14 @@ class TEMPLATE_OT_restore_hotkey(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class VCOLORPLUS_OT_add_hotkey(bpy.types.Operator):
-    bl_idname = "vcolor_plus.add_hotkey"
+class COLORPLUS_OT_add_hotkey(bpy.types.Operator):
+    bl_idname = "color_plus.add_hotkey"
     bl_label = "Add Hotkeys"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     km_name: StringProperty()
 
-    def execute(self, context):
+    def execute(self, context: Context):
         context.preferences.active_section = 'KEYMAP'
         wm = context.window_manager
         kc = wm.keyconfigs.addon
@@ -172,46 +185,70 @@ class VCOLORPLUS_OT_add_hotkey(bpy.types.Operator):
 ############################################################
 
 
-class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
-    ### UPDATE FUNCTIONS ###
-
-    def update_color_wheel(self, context):
+class COLORPLUS_property_group(bpy.types.PropertyGroup):
+    def update_color_wheel(self, context: Context):
         # Update selected vertices if live color tweak is on
-        if self.live_color_tweak and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
-            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='color_wheel')
+        if self.live_color_tweak \
+        and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
+            bpy.ops.color_plus.edit_color(
+                edit_type='apply',
+                variation_value='color_wheel'
+            )
 
         # Update draw brush in vertex color mode
-        bpy.data.brushes["Draw"].color = (self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
+        bpy.data.brushes["Draw"].color = (
+            self.color_wheel[0], self.color_wheel[1], self.color_wheel[2]
+        )
 
         # Convert the RGB value to HSV for easy tweaking
-        color_wheel_hsv = colorsys.rgb_to_hsv(self.color_wheel[0], self.color_wheel[1], self.color_wheel[2])
-        
+        color_wheel_hsv = colorsys.rgb_to_hsv(
+            self.color_wheel[0], self.color_wheel[1], self.color_wheel[2]
+        )
+
         # Set value/alpha variation preview
-        self.value_var = colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], self.value_var_slider)
-        self.alpha_var = (*(colorsys.hsv_to_rgb(color_wheel_hsv[0], color_wheel_hsv[1], color_wheel_hsv[2])), self.alpha_var_slider)
+        self.value_var = colorsys.hsv_to_rgb(
+            color_wheel_hsv[0], color_wheel_hsv[1], self.value_var_slider
+        )
+        self.alpha_var = (
+            *(colorsys.hsv_to_rgb(color_wheel_hsv[0],
+                                  color_wheel_hsv[1],
+                                  color_wheel_hsv[2])),
+            self.alpha_var_slider
+        )
 
-    def update_color_variation(self, context): # extension of update_color_wheel, but using the variation value
+    def update_color_variation(self, context: Context):
+        """Extension of `update_color_wheel`
+        for color variation value."""
         self.update_color_wheel(context)
 
         # Update selected vertices if live color tweak is on
-        if self.live_color_tweak and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
-            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='value_var')
+        if self.live_color_tweak \
+        and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
+            bpy.ops.color_plus.edit_color(
+                edit_type='apply',
+                variation_value='value_var'
+            )
 
-    def update_alpha_variation(self, context): # extension of update_color_wheel, but using the variation value
+    def update_alpha_variation(self, context: Context):
+        """Extension of `update_color_wheel`
+        for alpha variation value."""
         self.update_color_wheel(context)
 
         # Update selected vertices if live color tweak is on
-        if self.live_color_tweak and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
-            bpy.ops.vcolor_plus.edit_color(edit_type='apply', variation_value='alpha_var')
+        if self.live_color_tweak \
+        and context.mode in ('EDIT_MESH', 'PAINT_VERTEX'):
+            bpy.ops.color_plus.edit_color(
+                edit_type='apply',
+                variation_value='alpha_var'
+            )
 
-    def palette_update(self, context):
-        bpy.ops.vcolor_plus.refresh_palette_outliner()
-        
-    ### PROPERTIES ###
+    def palette_update(self, _context: Context):
+        bpy.ops.color_plus.refresh_palette_outliner()
 
     live_color_tweak: BoolProperty(
         name="Live Tweak",
-        description='If enabled, changing the Active Color will update any vertices that are selected'
+        description=\
+            "If changing the Active Color will update the current selection"
     )
 
     interpolation_type: EnumProperty(
@@ -223,20 +260,20 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
     custom_palette_apply_options: EnumProperty(
         items=(
-            ('apply_to_sel', "Fill Selection", ""),
-            ('apply_to_col', "Set Active Color", "")
+            ('apply_to_sel', "Apply Color", ""),
+            ('apply_to_col', "Set Color", "")
         )
     )
 
     rgb_hsv_convert_options: EnumProperty(
         items=(
-            ('hsv', "HSV", ""),
-            ('rgb', "RGBA", "")
+            ('colors_hsv', "HSV", ""),
+            ('rgb', "RGB", "")
         ),
         update=palette_update
     )
 
-    generation_type: EnumProperty(
+    generate: EnumProperty(
         items=(
             ('per_uv_shell', "Per UV Shell  (Random Color)", ""),
             ('per_uv_border', "Per UV Border", ""),
@@ -248,7 +285,7 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
         name='Generation Type'
     )
 
-    generation_per_uv_border_options: EnumProperty(
+    generate_per_uv_border: EnumProperty(
         items=(
             ('random_col', "Random Color", ""),
             ('active_col', "Active Color", "")
@@ -285,10 +322,8 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
 
     value_var_slider: FloatProperty(
         name="",
-        description='Applies value variation to the selection without the need to change the Active Color (WARNING: This works with Live Tweak)',
-        default=.5,
-        min=0,
-        max=1,
+        description="Applies value variation to the selection without the need to change the Active Color (WARNING: This works with Live Tweak)",
+        default=.5, min=0, max=1,
         subtype='FACTOR',
         update=update_color_variation
     )
@@ -296,17 +331,13 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     value_var: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.5, .5, .5],
-        min=0,
-        max=1
+        default=[.5, .5, .5], min=0, max=1
     )
 
     alpha_var_slider: FloatProperty(
         name="",
         description='Applies alpha variation to the selection without the need to change the Active Color (WARNING: This works with Live Tweak)',
-        default=0,
-        min=0,
-        max=1,
+        default=0, min=0, max=1,
         subtype='FACTOR',
         update=update_alpha_variation
     )
@@ -314,165 +345,132 @@ class VCOLORPLUS_property_group(bpy.types.PropertyGroup):
     alpha_var: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0, .5],
-        size=4,
-        min=0,
-        max=1
+        default=[0, 0, 0, .5], size=4,
+        min=0, max=1
     )
 
     color_custom_1: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[1, 0, 0, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[1, 0, 0, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_2: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 1, 0, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[0, 1, 0, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_3: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 1, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[0, 0, 1, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_4: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.75, .75, .75, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.75, .75, .75, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_5: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.75, .75, 0, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.75, .75, 0, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_6: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, .75, .75, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[0, .75, .75, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_7: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.75, 0, .75, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.75, 0, .75, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_8: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.5, .5, .5, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.5, .5, .5, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_9: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.5, .75, 0, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.5, .75, 0, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_10: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, .5, .75, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[0, .5, .75, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_11: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.75, 0, .5, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.75, 0, .5, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_12: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.25, .25, .25, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.25, .25, .25, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_13: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.25, .5, 0, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.25, .5, 0, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_14: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, .5, .25, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[0, .5, .25, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_15: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[.25, 0, .5, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[.25, 0, .5, 1], size=4,
+        min=0, max=1
     )
 
     color_custom_16: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
-        default=[0, 0, 0, 1],
-        size=4,
-        min=0,
-        max=1
+        default=[0, 0, 0, 1], size=4,
+        min=0, max=1
     )
 
 
-class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
-    def update_palette_color(self, context):
+class COLORPLUS_collection_property(bpy.types.PropertyGroup):
+    def update_palette_color(self, _context: Context):
         if [*self.color] != [*self.saved_color]:
-            bpy.ops.vcolor_plus.change_outliner_color(saved_id=self.id)
+            bpy.ops.color_plus.change_outliner_color(saved_active_idx=self.id)
 
-            # This only somewhat fixes the clearing [1,1,1,1] val colors? Strange.
+            # This only somewhat fixes the
+            # clearing [1,1,1,1] val colors? Strange.
             if [*self.color[:3]] != [1, 1, 1] and [*self.saved_color[:3]] != [1, 1, 1]:
-                bpy.ops.vcolor_plus.refresh_palette_outliner(saved_id=self.saved_color)
+                bpy.ops.color_plus.refresh_palette_outliner(saved_active_idx=self.id)
 
     id: IntProperty()
 
@@ -484,7 +482,8 @@ class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
         min=0,
         max=1,
         update=update_palette_color,
-        description='Click to change the current color for this layer (WARNING: If the set color matches another color or is pure white it will be merged/removed!)'
+        description=\
+            "Click to change the current color for this layer (WARNING: If the set color matches another color or is pure white it will be merged/removed!)"
     )
 
     saved_color: FloatVectorProperty(
@@ -497,55 +496,55 @@ class VCOLORPLUS_collection_property(bpy.types.PropertyGroup):
     )
 
 
-################################################################################################################
+#########################################
 # PRESETS
-################################################################################################################
+#########################################
 
 
-class VCOLORPLUS_MT_presets(Menu):
+class COLORPLUS_MT_presets(Menu):
     bl_label = ""
-    preset_subdir = "vcolor_plus"
+    preset_subdir = "color_plus"
     preset_operator = "script.execute_preset"
     draw = Menu.draw_preset
 
 
-class VCOLORPLUS_PT_presets(PresetPanel, Panel):
+class COLORPLUS_PT_presets(PresetPanel, Panel):
     bl_label = 'VColor Plus Presets'
-    preset_subdir = 'vcolor_plus'
+    preset_subdir = 'color_plus'
     preset_operator = 'script.execute_preset'
-    preset_add_operator = 'vcolor_plus.preset_add'
+    preset_add_operator = 'color_plus.preset_add'
 
 
-class VCOLORPLUS_OT_add_preset(AddPresetBase, bpy.types.Operator):
-    bl_idname = "vcolor_plus.preset_add"
+class COLORPLUS_OT_add_preset(AddPresetBase, bpy.types.Operator):
+    bl_idname = "color_plus.preset_add"
     bl_label = "Add a new preset"
-    preset_menu = "VCOLORPLUS_MT_presets"
+    preset_menu = "COLORPLUS_MT_presets"
 
     # Variable used for all preset values
-    preset_defines = ["vcolor_plus=bpy.context.scene.vcolor_plus"]
+    preset_defines = ["color_plus=bpy.context.scene.color_plus"]
 
     # Properties to store in the preset
     preset_values = [
-        "vcolor_plus.color_custom_1",
-        "vcolor_plus.color_custom_2",
-        "vcolor_plus.color_custom_3",
-        "vcolor_plus.color_custom_4",
-        "vcolor_plus.color_custom_5",
-        "vcolor_plus.color_custom_6",
-        "vcolor_plus.color_custom_7",
-        "vcolor_plus.color_custom_8",
-        "vcolor_plus.color_custom_9",
-        "vcolor_plus.color_custom_10",
-        "vcolor_plus.color_custom_11",
-        "vcolor_plus.color_custom_12",
-        "vcolor_plus.color_custom_13",
-        "vcolor_plus.color_custom_14",
-        "vcolor_plus.color_custom_15",
-        "vcolor_plus.color_custom_16"
+        "color_plus.color_custom_1",
+        "color_plus.color_custom_2",
+        "color_plus.color_custom_3",
+        "color_plus.color_custom_4",
+        "color_plus.color_custom_5",
+        "color_plus.color_custom_6",
+        "color_plus.color_custom_7",
+        "color_plus.color_custom_8",
+        "color_plus.color_custom_9",
+        "color_plus.color_custom_10",
+        "color_plus.color_custom_11",
+        "color_plus.color_custom_12",
+        "color_plus.color_custom_13",
+        "color_plus.color_custom_14",
+        "color_plus.color_custom_15",
+        "color_plus.color_custom_16"
     ]
 
     # Where to store the preset
-    preset_subdir = "vcolor_plus"
+    preset_subdir = "color_plus"
 
 
 ############################################################
@@ -553,7 +552,7 @@ class VCOLORPLUS_OT_add_preset(AddPresetBase, bpy.types.Operator):
 ############################################################
 
 
-class VCOLORPLUS_MT_addon_prefs(bpy.types.AddonPreferences):
+class COLORPLUS_MT_addon_prefs(AddonPreferences):
     bl_idname=__package__
 
     tabs: EnumProperty(
@@ -582,7 +581,7 @@ Certain items may still be changed if the code interacts with the outliner direc
         max=100
     )
 
-    def draw(self, context):
+    def draw(self, context: Context):
         layout = self.layout
 
         row = layout.row()
@@ -604,7 +603,7 @@ Certain items may still be changed if the code interacts with the outliner direc
             split.prop(self, 'max_outliner_items')
 
         else: # Keymaps
-            VCOLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, layout)
+            COLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, layout)
 
 
 ##################################
@@ -613,49 +612,57 @@ Certain items may still be changed if the code interacts with the outliner direc
 
 
 classes = (
-    VCOLORPLUS_MT_presets,
-    VCOLORPLUS_PT_presets,
-    VCOLORPLUS_OT_add_preset,
-    VCOLORPLUS_MT_addon_prefs,
-    VCOLORPLUS_property_group,
-    VCOLORPLUS_collection_property,
-    VCOLORPLUS_OT_add_hotkey
+    COLORPLUS_MT_presets,
+    COLORPLUS_PT_presets,
+    COLORPLUS_OT_add_preset,
+    COLORPLUS_MT_addon_prefs,
+    COLORPLUS_property_group,
+    COLORPLUS_collection_property,
+    COLORPLUS_OT_add_hotkey
 )
-
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.vcolor_plus = PointerProperty(type=VCOLORPLUS_property_group)
-    bpy.types.Object.vcolor_plus_palette_coll = CollectionProperty(type=VCOLORPLUS_collection_property)
-    bpy.types.Object.vcolor_plus_custom_index = IntProperty(name='R G B A values for the layer (Renaming does not work)')
+    bpy.types.Scene.color_plus = PointerProperty(type=COLORPLUS_property_group)
+    bpy.types.Object.color_palette = \
+        CollectionProperty(type=COLORPLUS_collection_property)
+    bpy.types.Object.color_palette_active = \
+        IntProperty(
+            name='R G B A values for the layer (Renaming does not work)'
+        )
 
     # Assign keymaps & register
-    VCOLORPLUS_addon_keymaps.new_keymap('Vertex Colors Pie', 'wm.call_menu_pie', 'VCOLORPLUS_MT_pie_menu',
-                                        'Mesh', 'EMPTY', 'WINDOW', 'C',
-                                        'PRESS', False, True, False)
+    COLORPLUS_addon_keymaps.new_keymap('Vertex Colors Pie',
+                                       'wm.call_menu_pie',
+                                       'COLORPLUS_MT_pie_menu',
+                                       'Mesh', 'EMPTY', 'WINDOW', 'C',
+                                       'PRESS', False, True, False)
 
-    VCOLORPLUS_addon_keymaps.new_keymap('Fill Selection', 'vcolor_plus.edit_color', None,
-                                        'Mesh', 'EMPTY', 'WINDOW', 'F',
-                                        'PRESS', True, True, False, 'NONE')
+    COLORPLUS_addon_keymaps.new_keymap('Fill Selection',
+                                       'color_plus.edit_color',
+                                       None,
+                                       'Mesh', 'EMPTY', 'WINDOW', 'F',
+                                       'PRESS', True, True, False, 'NONE')
 
-    VCOLORPLUS_addon_keymaps.new_keymap('Clear Selection', 'vcolor_plus.edit_color_clear', None,
-                                        'Mesh', 'EMPTY', 'WINDOW', 'F',
-                                        'PRESS', False, True, True, 'NONE')
+    COLORPLUS_addon_keymaps.new_keymap('Clear Selection',
+                                       'color_plus.edit_color_clear',
+                                       None,
+                                       'Mesh', 'EMPTY', 'WINDOW', 'F',
+                                       'PRESS', False, True, True, 'NONE')
 
-    VCOLORPLUS_addon_keymaps.register_keymaps()
-
+    COLORPLUS_addon_keymaps.register_keymaps()
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
-    VCOLORPLUS_addon_keymaps.unregister_keymaps()
+    COLORPLUS_addon_keymaps.unregister_keymaps()
 
-    del bpy.types.Scene.vcolor_plus
-    del bpy.types.Object.vcolor_plus_palette_coll
-    del bpy.types.Object.vcolor_plus_custom_index
+    del bpy.types.Scene.color_plus
+    del bpy.types.Object.color_palette
+    del bpy.types.Object.color_palette_active
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####

@@ -1,37 +1,5 @@
-bl_info = {
-    "name":"Vertex Colors Plus",
-    "author":"Ethan Simon-Law",
-    "location": "3D View > Sidebar > Vertex Color",
-    "version":(0, 2),
-    "blender":(3, 4, 1),
-    "tracker_url": "https://discord.com/invite/wHAyVZG",
-    "category": "3D View"
-}
 
-
-import importlib
-
-
-module_names = (
-    "ui",
-    "operators",
-    "preferences"
-)
-
-modules = []
-for module_name in module_names:
-    if module_name in locals():
-        modules.append(importlib.reload(locals()[module_name]))
-    else:
-        modules.append(importlib.import_module(f".{module_name}", __package__))
-
-def register():
-    for mod in modules:
-        mod.register()
-
-def unregister():
-    for mod in modules:
-        mod.unregister()
+BLANK_ARRAY = (1, 1, 1, 1)
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####

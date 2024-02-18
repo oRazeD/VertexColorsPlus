@@ -1,0 +1,23 @@
+[MASTER]
+
+ignore=docs, __pycache__
+disable=
+	no-member,
+	too-many-arguments,
+	too-few-public-methods,
+	logging-format-interpolation,
+	missing-module-docstring,
+	missing-function-docstring,
+	missing-class-docstring,
+  	no-name-in-module,
+  	c-extension-no-member,
+  	fixme,
+  	invalid-name,
+	consider-using-with,
+	wrong-import-position,
+	consider-using-f-string,
+	wrong-import-order,
+	ungrouped-imports,
+	unnecessary-lambda,
+	unused-wildcard-import,
+	assignment-from-no-return
