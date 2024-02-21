@@ -6,6 +6,7 @@ import bpy
 from bpy.types import Panel, UIList, Menu
 
 from .preferences import COLORPLUS_PT_presets
+from .constants import MAX_OUTLINER_ITEM_MSG
 
 
 ######################################
@@ -282,11 +283,11 @@ class COLORPLUS_PT_palette_outliner(PanelInfo, Panel):
                           "color_palette_active",
                           rows=4)
 
-        max_items = preferences.max_outliner_items
-        if len(ob.color_palette) == max_items:
+        max_outliner_items = preferences.max_outliner_items
+        if len(ob.color_palette) >= max_outliner_items:
             box = col.box()
             box.scale_y = .8
-            box.label(text=f"Max # of colors reached ({max_items})",
+            box.label(text=MAX_OUTLINER_ITEM_MSG + f" ({max_outliner_items})",
                       icon='ERROR')
 
         if len(context.selected_objects) > 1:

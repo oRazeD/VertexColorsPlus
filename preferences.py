@@ -17,6 +17,8 @@ from bpy.props import (
     CollectionProperty
 )
 
+from .constants import MAX_OUTLINER_ITEM_MSG
+
 
 ##################################
 # Keymapping
@@ -599,11 +601,12 @@ Certain items may still be changed if the code interacts with the outliner direc
 
             box = col.box()
             split = box.split()
-            split.label(text='Maximum # of Items in Palette Outliner')
+            split.label(text=MAX_OUTLINER_ITEM_MSG + self.max_outliner_items)
             split.prop(self, 'max_outliner_items')
-
         else: # Keymaps
-            COLORPLUS_addon_keymaps.draw_keymap_items(context.window_manager, layout)
+            COLORPLUS_addon_keymaps.draw_keymap_items(
+                context.window_manager, layout
+            )
 
 
 ##################################

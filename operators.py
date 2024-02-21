@@ -17,7 +17,7 @@ from .functions import (
     create_bmesh_color,
     get_bmesh_active_color_layer
 )
-from .constants import BLANK_ARRAY
+from .constants import BLANK_ARRAY, MAX_OUTLINER_ITEM_MSG
 
 
 #########################################
@@ -285,20 +285,23 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
             bpy.context.preferences.addons[__package__].preferences
         color_list = []
         message_sent = False
+        max_outliner_items = preferences.max_outliner_items
         for face in bm.faces:
             if message_sent:
                 break
             for loop in face.loops:
-                if len(color_list) > preferences.max_outliner_items:
+                if len(color_list) > max_outliner_items:
                     message_sent = True
-                    self.report({'WARNING'}, f"Maximum amount of Palette Outliner vertex colors reached ({preferences.max_outliner_items})")
+                    self.report(
+                        {'WARNING'},
+                        MAX_OUTLINER_ITEM_MSG + f" ({max_outliner_items})")
                     break
 
                 converted_loop = \
                     convert_to_plain_array(array_object=loop[layer])
 
                 if converted_loop not in color_list \
-                and converted_loop != BLANK_ARRAY:
+                and converted_loop != list(BLANK_ARRAY):
                     color_list.append(converted_loop)
         return color_list
 
@@ -335,14 +338,31 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
             else:
                 item.id = len(ob.color_palette) - 1
 
+            item_color = []
             if bpy.context.scene.color_plus.rgb_hsv_convert_options == 'rgb':
-                item.name = \
-                    f'({round(color[0] * 255)}, {round(color[1] * 255)}, {round(color[2] * 255)}, {round(color[3], 2)})'
-            else:
+                for channel in color[:-1]:
+                    item_color.append(round(channel * 255))
+            else: # HSV
                 color_hsv = \
                     colorsys.rgb_to_hsv(color[0], color[1], color[2])
-                item.name = \
-                    f'({round(color_hsv[0], 2)}, {round(color_hsv[1], 2)}, {round(color_hsv[2], 2)}, {round(color[3], 2)})'
+                for channel in color_hsv:
+                    print(f'channel {type(channel)}: {channel}')
+                    print(channel.is_integer())
+                    if channel.is_integer():
+                        channel = round(channel)
+                    item_color.append(round(channel, 2))
+            if color[3].is_integer():
+                alpha_channel = round(color[3])
+            else:
+                alpha_channel = round(color[3], 3)
+            item_color.append(alpha_channel)
+
+            item.name = "({}, {}, {}, {})".format(
+                item_color[0],
+                item_color[1],
+                item_color[2],
+                item_color[3]
+            )
 
     def execute(self, context: Context):
         saved_context=context.object.mode
@@ -364,7 +384,7 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
 
             colors = self.get_bmesh_colors(bm, layer)
             # TODO Unused sorting method, currently breaks the
-            # outliner in odd ways that I cannot currently solve
+            # outliner in ways I haven't been able to solve
             #colors = self.sort_colors(colors)
 
             self.generate_palette(ob, colors)
