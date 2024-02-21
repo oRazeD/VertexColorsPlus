@@ -24,20 +24,23 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
 
     def draw(self, context):
         color_plus = context.scene.color_plus
-
-        in_edit_mode=False if context.mode != 'EDIT_MESH' else True
-
         layout = self.layout
 
         col = layout.column()
         col.scale_y = 1.3
+        switch_mode = "Editing"
+        in_edit_mode = context.mode == 'EDIT_MESH'
+        if in_edit_mode:
+            switch_mode = "Painting"
         col.operator(
-            "color_plus.switch_to_paint_or_edit",
-            text='Switch to Painting' if context.mode == 'EDIT_MESH' else 'Switch to Editing',
+            'color_plus.switch_to_paint_or_edit',
+            text=f"Switch to {switch_mode}",
             icon='VPAINT_HLT' if context.mode == 'EDIT_MESH' else 'EDITMODE_HLT'
         )
 
-        col.separator(factor=.5)
+        col.separator(factor=.25)
+
+        self.draw_color_sets(context)
 
         col = layout.column(align=True)
         split = col.split(factor=.75, align=True)
@@ -45,7 +48,7 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
         split.enabled = in_edit_mode
         edit_color_op = split.operator(
             "color_plus.edit_color",
-            text='Fill Selection', icon='CHECKMARK'
+            text='Paint Selection', icon='BRUSH_DATA'
         )
         edit_color_op.edit_type = 'apply'
         edit_color_op.variation_value = 'color_wheel'
@@ -89,6 +92,53 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
             box.scale_y = .8
             box.label(text='Face selections only!', icon='INFO')
 
+    def draw_color_sets(self, context):
+        layout = self.layout
+
+        if not context.object:
+            layout.label(text='No Active Object is selected', icon='INFO')
+            return
+
+        row = layout.row()
+        col = row.column()
+
+        mesh = context.object.data
+        if bpy.app.version < (3, 2, 0):
+            col.template_list(
+                "MESH_UL_vcols",
+                "vcols",
+                mesh,
+                "vertex_colors",
+                mesh.vertex_colors,
+                "active_index",
+                rows=3
+            )
+
+            col = row.column(align=True)
+            col.operator("mesh.vertex_color_add", icon='ADD', text="")
+            col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
+        else:
+            col.template_list(
+                "MESH_UL_color_attributes",
+                "color_attributes",
+                mesh,
+                "color_attributes",
+                mesh.color_attributes,
+                "active_color_index",
+                rows=3,
+            )
+
+            col = row.column(align=True)
+            col.operator("geometry.color_attribute_add", icon='ADD', text="")
+            col.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
+
+            col.separator()
+
+            col.menu("MESH_MT_color_attribute_context_menu",
+                     icon='DOWNARROW_HLT', text="")
+
+            # self.draw_attribute_warnings(context, layout) TODO
+
 
 class COLORPLUS_PT_apply(PanelInfo, Panel):
     bl_label = 'Apply'
@@ -107,7 +157,7 @@ class COLORPLUS_PT_apply(PanelInfo, Panel):
         col.scale_y = 1.1
         edit_color_op = col.operator(
             "color_plus.edit_color",
-            text='Apply All', icon='CHECKMARK'
+            text='Fill All', icon='CHECKMARK'
         )
         edit_color_op.edit_type = 'apply_all'
         edit_color_op.variation_value = 'color_wheel'
@@ -154,7 +204,7 @@ class COLORPLUS_PT_apply(PanelInfo, Panel):
         col.label(text="Variation")
 
         row = col.row(align=True)
-        row.enabled = False if context.mode != 'EDIT_MESH' else True
+        row.enabled = context.mode == 'EDIT_MESH'
 
         edit_value = row.operator(
             'color_plus.edit_color',
@@ -183,7 +233,8 @@ class COLORPLUS_PT_apply(PanelInfo, Panel):
 
 
 class COLORPLUS_UL_items(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, _context, layout, _data, item, _icon,
+                  _active_data, _active_propname, _index):
         row = layout.row()
         row.scale_x = 0.325
         row.prop(item, 'color')
@@ -208,49 +259,70 @@ class COLORPLUS_PT_palette_outliner(PanelInfo, Panel):
         preferences = context.preferences.addons[__package__].preferences
 
         disable_ui = False
-        if not len(ob.color_palette):
+        if not ob.color_palette:
             disable_ui = True
         else:
             try:
-                _idx_check = ob.color_palette[ob.color_palette_active]
+                _ = ob.color_palette[ob.color_palette_active]
             except (IndexError, ValueError):
                 disable_ui = True
 
         col = layout.column(align=True)
         col.scale_y = 1.2
-        col.operator("color_plus.refresh_palette_outliner", text='Refresh Palette', icon='FILE_REFRESH')
+        col.operator("color_plus.refresh_palette_outliner",
+                     text='Refresh Palette', icon='FILE_REFRESH')
 
         row = layout.row()
         col = row.column(align=True)
-        col.template_list("COLORPLUS_UL_items", "", ob, "color_palette", ob, "color_palette_active", rows=4)
+        col.template_list("COLORPLUS_UL_items",
+                          "",
+                          ob,
+                          "color_palette",
+                          ob,
+                          "color_palette_active",
+                          rows=4)
 
-        if len(ob.color_palette) == preferences.max_outliner_items:
+        max_items = preferences.max_outliner_items
+        if len(ob.color_palette) == max_items:
             box = col.box()
             box.scale_y = .8
-            box.label(text = f'Max # of items reached ({preferences.max_outliner_items})', icon='ERROR')
+            box.label(text=f"Max # of colors reached ({max_items})",
+                      icon='ERROR')
 
         if len(context.selected_objects) > 1:
             box = col.box()
             box.scale_y = .8
-            box.label(text = 'Only uses Active Object', icon='INFO')
+            box.label(text="Only uses Active Object", icon='INFO')
 
         row2 = col.row(align=True)
         row2.scale_y = .95
         row2.enabled = not disable_ui
-        row2.prop(context.scene.color_plus, 'rgb_hsv_convert_options', expand=True)
+        row2.prop(context.scene.color_plus,
+                  'rgb_hsv_convert_options',
+                  expand=True)
 
-        col = row.column()
+        col = row.column(align=True)
         col.enabled = not disable_ui
-
-        col.operator("color_plus.apply_outliner_color", icon='CHECKMARK', text="")
-        col.separator(factor = .49)
-        col.operator("color_plus.get_active_outliner_color", icon='RESTRICT_COLOR_ON', text="")
-        col.separator(factor = .49)
-        col.operator("color_plus.select_outliner_color", icon='RESTRICT_SELECT_OFF', text="")
-        col.separator(factor = .49)
-        col.operator("color_plus.delete_outliner_color", icon='TRASH', text="")
-        col.separator(factor = .49)
-        col.operator("color_plus.convert_to_vertex_group", icon='GROUP_VERTEX', text="")
+        col.operator(
+            "color_plus.apply_outliner_color",
+            icon='CHECKMARK', text=""
+        )
+        col.operator(
+            "color_plus.get_active_outliner_color",
+            icon='RESTRICT_COLOR_ON', text=""
+        )
+        col.operator(
+            "color_plus.select_outliner_color",
+            icon='RESTRICT_SELECT_OFF', text=""
+        )
+        col.operator(
+            "color_plus.delete_outliner_color",
+            icon='TRASH', text=""
+        )
+        col.operator(
+            "color_plus.convert_to_vertex_group",
+            icon='GROUP_VERTEX', text=""
+        )
 
 
 class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
@@ -263,12 +335,10 @@ class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
 
     def draw(self, context):
         color_plus = context.scene.color_plus
-
         layout = self.layout
 
         col = layout.column(align=True)
-
-        COLORPLUS_PT_presets.draw_menu(col, text='Custom Palette Presets')
+        COLORPLUS_PT_presets.draw_menu(col, text="Custom Palette Presets")
 
         #row = col.row(align=True)
         #row.enabled = False
@@ -276,8 +346,6 @@ class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
         #row.operator("color_plus.vcolor_shading", text='Export', icon='EXPORT')
 
         col = layout.column(align=True)
-
-        #col.separator(factor=.5)
 
         row = col.row(align=True)
         row.prop(color_plus, 'custom_palette_apply_options', expand=True)
@@ -287,76 +355,92 @@ class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_1')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_1'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_1'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_2')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_2'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_2'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_3')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_3'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_3'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_4')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_4'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_4'
 
         col = layout.column(align=True)
 
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_5')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_5'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_5'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_6')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_6'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_6'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_7')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_7'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_7'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_8')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_8'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_8'
 
         col = layout.column(align=True)
 
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_9')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_9'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_9'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_10')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_10'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_10'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_11')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_11'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_11'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_12')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_12'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_12'
 
         col = layout.column(align=True)
 
         split = col.split(align=True)
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_13')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_13'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_13'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_14')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_14'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_14'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_15')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_15'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_15'
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_custom_16')
-        split.operator("color_plus.custom_color_apply", icon='CHECKMARK').custom_color_name = 'color_custom_16'
+        split.operator("color_plus.custom_color_apply",
+                       icon='CHECKMARK').custom_color_name = 'color_custom_16'
 
 
 class COLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
@@ -388,15 +472,18 @@ class COLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
 
             row = layout.row()
             row.label(text="Smooth VColors")
-            row.prop(scene.bake_to_vertex_color_props, "smooth_vertex_colors", text="")
+            row.prop(scene.bake_to_vertex_color_props,
+            "smooth_vertex_colors", text="")
 
             row = layout.row()
             row.label(text="Delete Bake Image")
-            row.prop(scene.bake_to_vertex_color_props, "delete_bake_image", text="")
+            row.prop(scene.bake_to_vertex_color_props,
+                     "delete_bake_image", text="")
 
             row = layout.row()
             row.label(text="VColor Name")
-            row.prop(scene.bake_to_vertex_color_props, "vertex_color_name", text="")
+            row.prop(scene.bake_to_vertex_color_props,
+                     "vertex_color_name", text="")
 
             row = layout.row()
             row.scale_y = 1.5
@@ -404,23 +491,35 @@ class COLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
 
             row = layout.row()
             row.scale_y = 1.5
-            bake_to_vcolor_op = row.operator('object.bake_to_vertex_col', text='Bake Pass to Vertex Color', icon='RENDER_STILL')
-            bake_to_vcolor_op.resolution = int(scene.bake_to_vertex_color_props.resolution)
-            bake_to_vcolor_op.samples = scene.bake_to_vertex_color_props.samples
-            bake_to_vcolor_op.vertex_color_name = scene.bake_to_vertex_color_props.vertex_color_name
-            bake_to_vcolor_op.smooth_vertex_colors = scene.bake_to_vertex_color_props.smooth_vertex_colors
-            bake_to_vcolor_op.bake_uv_type = scene.bake_to_vertex_color_props.bake_uv_type
-            bake_to_vcolor_op.delete_bake_image = scene.bake_to_vertex_color_props.delete_bake_image
-            bake_to_vcolor_op.bake_pass = scene.bake_to_vertex_color_props.bake_pass
+            bake_to_vcolor_op = row.operator('object.bake_to_vertex_col',
+                                             text='Bake Pass to Vertex Color',
+                                             icon='RENDER_STILL')
+            bake_to_vcolor_op.resolution = \
+                int(scene.bake_to_vertex_color_props.resolution)
+            bake_to_vcolor_op.samples = \
+                scene.bake_to_vertex_color_props.samples
+            bake_to_vcolor_op.vertex_color_name = \
+                scene.bake_to_vertex_color_props.vertex_color_name
+            bake_to_vcolor_op.smooth_vertex_colors = \
+                scene.bake_to_vertex_color_props.smooth_vertex_colors
+            bake_to_vcolor_op.bake_uv_type = \
+                scene.bake_to_vertex_color_props.bake_uv_type
+            bake_to_vcolor_op.delete_bake_image = \
+                scene.bake_to_vertex_color_props.delete_bake_image
+            bake_to_vcolor_op.bake_pass = \
+                scene.bake_to_vertex_color_props.bake_pass
         else:
             box = layout.box()
-            box.operator("wm.url_open", text="Bake to Vertex Color on Gumroad").url = "https://3dbystedt.gumroad.com/l/zdgxg"
+            box.operator(
+                "wm.url_open",
+                text="Bake to Vertex Color on Gumroad"
+            ).url = "https://3dbystedt.gumroad.com/l/zdgxg"
             box.label(text='You do not have Bake to', icon='ERROR')
             box.label(text='Vertex Color installed & enabled')
             box.label(text='or you do not have the latest version')
 
 
-class COLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
+class COLORPLUS_PT_color_generation(PanelInfo, Panel):
     bl_label = 'Generate Vertex Color'
     bl_parent_id = 'COLORPLUS_PT_ui'
     bl_options = {'DEFAULT_CLOSED'}
@@ -447,58 +546,6 @@ class COLORPLUS_PT_vcolor_generation(PanelInfo, Panel):
             row = col.row()
             row.scale_y = .8
             row.prop(color_plus, 'generate_per_uv_border', expand=True)
-
-
-class COLORPLUS_PT_vcolor_sets(PanelInfo, Panel):
-    bl_label = 'Vertex Color Sets'
-    bl_parent_id = 'COLORPLUS_PT_ui'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-
-        if not context.object:
-            layout.label(text='No Active Object is selected', icon='INFO')
-            return
-
-        row = layout.row()
-        col = row.column()
-
-        mesh = context.object.data
-        if bpy.app.version < (3, 2, 0):
-            col.template_list(
-                "MESH_UL_vcols",
-                "vcols",
-                mesh,
-                "vertex_colors",
-                mesh.vertex_colors,
-                "active_index",
-                rows=4
-            )
-
-            col = row.column(align=True)
-            col.operator("mesh.vertex_color_add", icon='ADD', text="")
-            col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
-        else:
-            col.template_list(
-                "MESH_UL_color_attributes",
-                "color_attributes",
-                mesh,
-                "color_attributes",
-                mesh.color_attributes,
-                "active_color_index",
-                rows=3,
-            )
-
-            col = row.column(align=True)
-            col.operator("geometry.color_attribute_add", icon='ADD', text="")
-            col.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
-
-            col.separator()
-
-            col.menu("MESH_MT_color_attribute_context_menu", icon='DOWNARROW_HLT', text="")
-
-            # self.draw_attribute_warnings(context, layout) TODO
 
 
 class COLORPLUS_MT_pie_menu(Menu):
@@ -562,10 +609,13 @@ class COLORPLUS_MT_pie_menu(Menu):
         row = col.row(align=True)
         row.scale_y = 1.25
 
-        edit_color_op = row.operator("color_plus.edit_color", text='Apply All', icon='CHECKMARK')
+        edit_color_op = row.operator("color_plus.edit_color",
+                                     text='Fill All', icon='CHECKMARK')
         edit_color_op.edit_type = 'apply_all'
         edit_color_op.variation_value = 'color_wheel'
-        row.operator("color_plus.edit_color", text='Clear All', icon='PANEL_CLOSE').edit_type = 'clear_all'
+        row.operator("color_plus.edit_color",
+                     text='Clear All',
+                     icon='PANEL_CLOSE').edit_type = 'clear_all'
 
         col.separator(factor=.5)
 
@@ -574,8 +624,10 @@ class COLORPLUS_MT_pie_menu(Menu):
         col2.label(text='Selection Border')
 
         row = col2.row(align=True)
-        row.operator('color_plus.apply_color_to_border', text='Inner', icon='CLIPUV_HLT').border_type = 'inner'
-        row.operator('color_plus.apply_color_to_border', text='Outer', icon='CLIPUV_DEHLT').border_type = 'outer'
+        row.operator('color_plus.apply_color_to_border',
+                     text='Inner', icon='CLIPUV_HLT').border_type = 'inner'
+        row.operator('color_plus.apply_color_to_border',
+                     text='Outer', icon='CLIPUV_DEHLT').border_type = 'outer'
 
         col.separator(factor=.5)
 
@@ -584,7 +636,8 @@ class COLORPLUS_MT_pie_menu(Menu):
         col.label(text="Variation")
 
         row = col.row(align=True)
-        edit_color = row.operator('color_plus.edit_color', text='', icon='CHECKMARK')
+        edit_color = row.operator('color_plus.edit_color',
+                                  text='', icon='CHECKMARK')
         edit_color.edit_type = 'apply'
         edit_color.variation_value = 'value_var'
 
@@ -592,24 +645,32 @@ class COLORPLUS_MT_pie_menu(Menu):
         split.prop(color_plus, 'value_var_slider')
         split.prop(color_plus, 'value_var')
         #2 - BOTTOM
-        pie.operator("color_plus.edit_color", text='Clear Selection', icon='PANEL_CLOSE').edit_type = 'clear'
+        pie.operator("color_plus.edit_color",
+                     text='Clear Selection',
+                     icon='PANEL_CLOSE').edit_type = 'clear'
         #8 - TOP
-        edit_color_op = pie.operator("color_plus.edit_color", text='Fill Selection', icon='CHECKMARK')
+        edit_color_op = pie.operator("color_plus.edit_color",
+                                     text='Paint Selection',
+                                     icon='CHECKMARK')
         edit_color_op.edit_type = 'apply'
         edit_color_op.variation_value = 'color_wheel'
         #7 - TOP - LEFT
-        pie.operator("color_plus.quick_color_switch", text='Quick Color Switch', icon='LOOP_FORWARDS')
+        pie.operator("color_plus.quick_color_switch",
+                     text='Quick Color Switch',
+                     icon='LOOP_FORWARDS')
         #9 - TOP - RIGHT
-        pie.operator("color_plus.quick_interpolation_switch", text='Smooth/Hard Switch', icon='MATSHADERBALL')
+        pie.operator("color_plus.quick_interpolation_switch",
+                     text='Smooth/Hard Switch',
+                     icon='MATSHADERBALL')
         # 1 - BOTTOM - LEFT
         pie.separator()
         # 3 - BOTTOM - RIGHT
         pie.separator()
 
 
-################################################################################################################
+########################################
 # REGISTRATION
-################################################################################################################
+########################################
 
 
 classes = (
@@ -618,17 +679,14 @@ classes = (
     COLORPLUS_UL_items,
     COLORPLUS_PT_palette_outliner,
     COLORPLUS_PT_custom_palette,
-    COLORPLUS_PT_vcolor_generation,
+    COLORPLUS_PT_color_generation,
     COLORPLUS_PT_bake_to_vertex_color,
-    COLORPLUS_PT_vcolor_sets,
     COLORPLUS_MT_pie_menu
 )
-
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-
 
 def unregister():
     for cls in classes:

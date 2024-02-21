@@ -61,7 +61,7 @@ class COLORPLUS_OT_switch_to_paint_or_edit(DefaultsOperator):
 class COLORPLUS_OT_edit_color(DefaultsOperator):
     """Edits the active vertex color set based on the selected operator"""
     bl_idname = "color_plus.edit_color"
-    bl_label = "Fill Selection"
+    bl_label = "Paint Selection"
 
     edit_type: bpy.props.EnumProperty(
         items=(
@@ -694,18 +694,16 @@ class COLORPLUS_OT_dirty_vertex_color(DefaultsOperator):
 class COLORPLUS_OT_generate_vcolor(DefaultsOperator):
     """Generate a VColor mask based on the settings below"""
     bl_idname = "color_plus.generate_vcolor"
-    bl_label = "Generate VColor"
+    bl_label = "Generate Vertex Color"
 
     def execute(self, context: Context):
         color_plus = context.scene.color_plus
         saved_context=context.object.mode
 
         bpy.ops.object.mode_set(mode='OBJECT')
-
-        no_uv_obs = []
-
         context.object.select_set(True)
 
+        no_uv_obs = []
         selected_mesh_objects = \
             [ob for ob in context.selectable_objects if ob.type == 'MESH']
         for ob in selected_mesh_objects:
