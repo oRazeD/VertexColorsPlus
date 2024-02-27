@@ -1,23 +1,21 @@
 import colorsys
-from operator import itemgetter
+#from operator import itemgetter
 from random import random
 
 import bpy
 import bpy_extras
 import bmesh
-from bpy.types import (
-    Operator,
-    Object,
-    Context
-)
+from bpy.types import Operator, Object, Context
 from bmesh.types import BMesh
+from bpy.props import FloatVectorProperty
 
 from .functions import (
     convert_to_plain_array,
-    create_bmesh_color,
-    get_bmesh_active_color_layer
+    create_color,
+    get_active_color,
+    get_bmesh_active_color
 )
-from .constants import BLANK_ARRAY, MAX_OUTLINER_ITEM_MSG
+from .constants import BLANK_ARRAY
 
 
 #########################################
@@ -123,41 +121,44 @@ class COLORPLUS_OT_edit_color(DefaultsOperator):
     def execute(self, context: Context):
         color_plus = context.scene.color_plus
 
-        saved_context=context.object.mode
+        saved_mode=context.object.mode
         bpy.ops.object.mode_set(mode='OBJECT')
         context.object.select_set(True)
 
+        # Get the RGB value based on the property given
+        rgba_value = BLANK_ARRAY
+        if self.variation_value:
+            try:
+                rgba_value = getattr(color_plus, self.variation_value)
+            except AttributeError:
+                rgba_value = getattr(color_plus, 'color_wheel')
+            if self.variation_value == 'value_var':
+                rgba_value = \
+                    [rgba_value[0], rgba_value[1], rgba_value[2], None]
+            elif self.variation_value == 'alpha_var':
+                rgba_value = [None, None, None, rgba_value[3]]
+
         selected_mesh_objects = \
-            [ob for ob in context.selectable_objects if ob.type == 'MESH']
+            [ob for ob in context.selected_objects if ob.type == 'MESH']
         for ob in selected_mesh_objects:
+            if get_active_color(ob.data) is None:
+                create_color(ob.data)
+
             bm = bmesh.new()
             bm.from_mesh(ob.data)
 
-            # Get the RGB value based on the property given
-            rgba_value = BLANK_ARRAY
-            if self.variation_value:
-                try:
-                    rgba_value = getattr(color_plus, self.variation_value)
-                except AttributeError:
-                    rgba_value = getattr(color_plus, 'color_wheel')
-                if self.variation_value == 'value_var':
-                    rgba_value = \
-                        [rgba_value[0], rgba_value[1], rgba_value[2], None]
-                elif self.variation_value == 'alpha_var':
-                    rgba_value = [None, None, None, rgba_value[3]]
-
-            layer = create_bmesh_color(bm, ob)
+            layer = get_bmesh_active_color(bm, ob.data)
             if color_plus.interpolation_type == "hard":
                 self.change_color_hard(bm, layer, rgba_value)
             else: # Smooth
                 self.change_color_smooth(bm, layer, rgba_value)
             bm.to_mesh(ob.data)
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
         preferences = \
             context.preferences.addons[__package__].preferences
         if preferences.auto_palette_refresh:
-            bpy.ops.color_plus.refresh_palette_outliner()
+            bpy.ops.color_plus.refresh_palette_outliner(color=rgba_value)
         return {'FINISHED'}
 
 
@@ -214,9 +215,9 @@ class COLORPLUS_OT_quick_interpolation_switch(DefaultsOperator):
         return {'FINISHED'}
 
 
-class COLORPLUS_OT_get_active_color(DefaultsOperator):
+class COLORPLUS_OT_set_color_from_active(DefaultsOperator):
     """Set the Active Color based on the actively selected vertex color on the mesh"""
-    bl_idname = "color_plus.get_active_color"
+    bl_idname = "color_plus.set_color_from_active"
     bl_label = "Color from Active Vertex"
 
     @classmethod
@@ -225,7 +226,7 @@ class COLORPLUS_OT_get_active_color(DefaultsOperator):
 
     def execute(self, context: Context):
         ob = context.object
-        saved_context=ob.mode
+        saved_mode=ob.mode
 
         bpy.ops.object.mode_set(mode='EDIT')
 
@@ -249,7 +250,7 @@ class COLORPLUS_OT_get_active_color(DefaultsOperator):
             return {'CANCELLED'}
 
         # Get active vertex color
-        layer = get_bmesh_active_color_layer(bm, ob)
+        layer = get_bmesh_active_color(bm, ob.data)
         for face in bm.faces:
             for loop in face.loops:
                 # TODO Make a list of the vert colors in this
@@ -258,7 +259,7 @@ class COLORPLUS_OT_get_active_color(DefaultsOperator):
                     context.scene.color_plus.color_wheel = loop[layer]
                     break
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
         return {'FINISHED'}
 
 
@@ -279,65 +280,54 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
     bl_label = "Refresh Palette"
 
     saved_active_idx: bpy.props.IntProperty(default=-1)
+    color: FloatVectorProperty(
+        subtype='COLOR_GAMMA',
+        default=[1, 1, 1, 1], size=4,
+        options={'HIDDEN'}
+    )
 
     def get_bmesh_colors(self, bm: BMesh, layer) -> list:
         preferences = \
             bpy.context.preferences.addons[__package__].preferences
         color_list = []
-        message_sent = False
-        max_outliner_items = preferences.max_outliner_items
         for face in bm.faces:
-            if message_sent:
-                break
             for loop in face.loops:
-                if len(color_list) > max_outliner_items:
-                    message_sent = True
-                    self.report(
-                        {'WARNING'},
-                        MAX_OUTLINER_ITEM_MSG + f" ({max_outliner_items})")
-                    break
-
                 converted_loop = \
                     convert_to_plain_array(array_object=loop[layer])
-
                 if converted_loop not in color_list \
                 and converted_loop != list(BLANK_ARRAY):
                     color_list.append(converted_loop)
+
+                if len(color_list) > preferences.max_outliner_items:
+                    return color_list
         return color_list
 
-    def sort_colors(self, colors: list) -> tuple[list, list]:
-        # Convert to HSV, sort list by value
-        colors_hsv = []
-        for color in colors:
-            colors_hsv.append([*colorsys.rgb_to_hsv(*color[:3]), color[3]])
-
-        # Separate and sort
-        hsv_sep = [color for color in colors_hsv if color[0] == 0]
-        hsv_values_sorted = sorted(hsv_sep, key=itemgetter(2))
-        hsv_hues = [color for color in colors_hsv if color not in hsv_sep]
-        hsv_hues_sorted = sorted(hsv_hues, key=itemgetter(0))
-        colors_hsv = hsv_values_sorted + hsv_hues_sorted
-
-        # Convert back to RGB
-        colors_rgb = []
-        for color in colors_hsv:
-            colors_rgb.append(
-                [*colorsys.hsv_to_rgb(*color[:3]), color[3]]
-            )
-        return colors_hsv, colors_rgb
+    # TODO Unused sorting method, currently breaks the
+    # outliner in ways I haven't been able to solve
+    #def sort_colors(self, colors: list) -> tuple[list, list]:
+    #    # Convert to HSV, sort list by value
+    #    colors_hsv = []
+    #    for color in colors:
+    #        colors_hsv.append([*colorsys.rgb_to_hsv(*color[:3]), color[3]])
+#
+    #    # Separate and sort
+    #    hsv_sep = [color for color in colors_hsv if color[0] == 0]
+    #    hsv_values_sorted = sorted(hsv_sep, key=itemgetter(2))
+    #    hsv_hues = [color for color in colors_hsv if color not in hsv_sep]
+    #    hsv_hues_sorted = sorted(hsv_hues, key=itemgetter(0))
+    #    colors_hsv = hsv_values_sorted + hsv_hues_sorted
+#
+    #    # Convert back to RGB
+    #    colors_rgb = []
+    #    for color in colors_hsv:
+    #        colors_rgb.append(
+    #            [*colorsys.hsv_to_rgb(*color[:3]), color[3]]
+    #        )
+    #    return colors_hsv, colors_rgb
 
     def generate_palette(self, ob: Object, colors: list) -> None:
         for idx, color in enumerate(colors):
-            item = ob.color_palette.add()
-            item.id = len(ob.color_palette) - 1
-            item.saved_color = color
-            item.color = color
-
-            if idx == self.saved_active_idx:
-                item.id = self.saved_active_idx
-            else:
-                item.id = len(ob.color_palette) - 1
-
+            # Format color naming
             item_color = []
             if bpy.context.scene.color_plus.rgb_hsv_convert_options == 'rgb':
                 for channel in color[:-1]:
@@ -346,8 +336,6 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
                 color_hsv = \
                     colorsys.rgb_to_hsv(color[0], color[1], color[2])
                 for channel in color_hsv:
-                    print(f'channel {type(channel)}: {channel}')
-                    print(channel.is_integer())
                     if channel.is_integer():
                         channel = round(channel)
                     item_color.append(round(channel, 2))
@@ -357,6 +345,15 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
                 alpha_channel = round(color[3], 3)
             item_color.append(alpha_channel)
 
+            # Create palette color
+            item = ob.color_palette.add()
+            item.saved_color = color
+            item.color = color
+            item.id = len(ob.color_palette) - 1
+            if idx == self.saved_active_idx:
+                item.id = self.saved_active_idx
+            else:
+                item.id = len(ob.color_palette) - 1
             item.name = "({}, {}, {}, {})".format(
                 item_color[0],
                 item_color[1],
@@ -364,17 +361,44 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
                 item_color[3]
             )
 
+    def check_existing_color(self, ob: Object) -> bool:
+        """Check if the sent color already exists in the palette outliner.
+
+        Useful for skipping unnecessary outliner refreshes."""
+        rounded_color = []
+        skip_refresh = False
+        for channel in self.color:
+            # NOTE: For whatever reason there is always
+            # massive floating point errors here so we round
+            rounded_color.append(round(channel, 2))
+        palette_colors = \
+            [[*palette.color] for palette in ob.color_palette]
+        for color in palette_colors:
+            for idx, channel in enumerate(color):
+                color[idx] = round(channel, 2)
+            if color == rounded_color:
+                skip_refresh = True
+                break
+        if skip_refresh:
+            return True
+        return False
+
     def execute(self, context: Context):
-        saved_context=context.object.mode
+        saved_mode=context.object.mode
         bpy.ops.object.mode_set(mode='EDIT')
 
-        selected_mesh_objects = \
-            [ob for ob in context.selectable_objects if ob.type == 'MESH']
-        for ob in selected_mesh_objects:
-            ob.color_palette.clear()
+        duplicate_check = False
+        if [*self.color] != list(BLANK_ARRAY):
+            duplicate_check = True
 
-            bm = bmesh.from_edit_mesh(ob.data)
-            layer = create_bmesh_color(bm, ob)
+        selected_mesh_objects = \
+            [ob for ob in context.selected_objects if ob.type == 'MESH']
+        for ob in selected_mesh_objects:
+            # NOTE: Skip palette refresh if the sent color
+            # already exists in the palette outliner
+            if duplicate_check and self.check_existing_color(ob):
+                continue
+            ob.color_palette.clear()
 
             # Preserve the original index color value
             if len(ob.color_palette):
@@ -382,6 +406,8 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
                 saved_color = \
                     convert_to_plain_array(array_object=palette.color)
 
+            bm = bmesh.from_edit_mesh(ob.data)
+            layer = get_bmesh_active_color(bm, ob.data)
             colors = self.get_bmesh_colors(bm, layer)
             # TODO Unused sorting method, currently breaks the
             # outliner in ways I haven't been able to solve
@@ -405,7 +431,8 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
                     break
                 del saved_color
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
+        self.color = list(BLANK_ARRAY)
         return {'FINISHED'}
 
 
@@ -418,7 +445,7 @@ class COLORPLUS_OT_change_outliner_color(DefaultsOperator):
     def execute(self, context: Context):
         ob = context.object
         palette = ob.color_palette[self.saved_active_idx]
-        saved_context=ob.mode
+        saved_mode=ob.mode
 
         bpy.ops.object.mode_set(mode='EDIT')
 
@@ -426,7 +453,7 @@ class COLORPLUS_OT_change_outliner_color(DefaultsOperator):
             convert_to_plain_array(array_object=palette.saved_color)
 
         bm = bmesh.from_edit_mesh(ob.data)
-        layer = get_bmesh_active_color_layer(bm, ob)
+        layer = get_bmesh_active_color(bm, ob.data)
         for face in bm.faces:
             for loop in face.loops:
                 converted_loop = \
@@ -438,7 +465,7 @@ class COLORPLUS_OT_change_outliner_color(DefaultsOperator):
 
         bmesh.update_edit_mesh(ob.data)
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
         return {'FINISHED'}
 
 
@@ -480,7 +507,7 @@ class COLORPLUS_OT_select_outliner_color(DefaultsOperator):
 
     def execute(self, context: Context):
         ob = context.object
-        saved_context=ob.mode
+        saved_mode=ob.mode
 
         bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -494,7 +521,7 @@ class COLORPLUS_OT_select_outliner_color(DefaultsOperator):
         converted_palette_loop = \
             convert_to_plain_array(array_object=palette.color)
 
-        layer = get_bmesh_active_color_layer(bm, ob)
+        layer = get_bmesh_active_color(bm, ob.data)
         for face in bm.faces:
             for loop in face.loops:
                 converted_loop = \
@@ -505,7 +532,7 @@ class COLORPLUS_OT_select_outliner_color(DefaultsOperator):
 
         bm.to_mesh(ob.data)
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
         return {'FINISHED'}
 
 
@@ -516,11 +543,11 @@ class COLORPLUS_OT_delete_outliner_color(DefaultsOperator):
 
     def execute(self, context: Context):
         ob = context.object
-        saved_context=ob.mode
+        saved_mode=ob.mode
         bpy.ops.object.mode_set(mode='EDIT')
 
         bm = bmesh.from_edit_mesh(ob.data)
-        layer = get_bmesh_active_color_layer(bm, ob)
+        layer = get_bmesh_active_color(bm, ob.data)
 
         palette = ob.color_palette[ob.color_palette_active]
         converted_palette_loop = \
@@ -535,9 +562,11 @@ class COLORPLUS_OT_delete_outliner_color(DefaultsOperator):
 
         bmesh.update_edit_mesh(ob.data)
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
 
-        if context.preferences.addons[__package__].preferences.auto_palette_refresh:
+        preferences = \
+            context.preferences.addons[__package__].preferences
+        if preferences.auto_palette_refresh:
             bpy.ops.color_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
@@ -549,7 +578,7 @@ class COLORPLUS_OT_convert_to_vertex_group(DefaultsOperator):
 
     def execute(self, context: Context):
         ob = context.object
-        saved_context=ob.mode
+        saved_mode=ob.mode
         bpy.ops.object.mode_set(mode='OBJECT')
 
         # Object mode BMesh for vgroup add (only works in ob mode)
@@ -561,7 +590,7 @@ class COLORPLUS_OT_convert_to_vertex_group(DefaultsOperator):
             convert_to_plain_array(array_object=palette.color)
 
         # Get vertices with the corresponding color value
-        layer = get_bmesh_active_color_layer(bm, ob)
+        layer = get_bmesh_active_color(bm, ob.data)
         vertex_list = []
         for face in bm.faces:
             for loop in face.loops:
@@ -575,29 +604,33 @@ class COLORPLUS_OT_convert_to_vertex_group(DefaultsOperator):
         converted_vgroup = ob.vertex_groups.new(name=palette.name)
         converted_vgroup.add(vertex_list, 1.0, 'ADD')
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
         return {'FINISHED'}
 
 
 class COLORPLUS_OT_custom_color_apply(DefaultsOperator):
     """Apply the color to your current selection/Active Color"""
     bl_idname = "color_plus.custom_color_apply"
+    bl_options = {'INTERNAL'}
 
     custom_color_name: bpy.props.StringProperty(options={'HIDDEN'})
 
     @classmethod
     def poll(cls, context: Context):
-        return context.mode == 'EDIT_MESH' or context.mode != 'EDIT_MESH' and context.scene.color_plus.custom_palette_apply_options == 'apply_to_col'
+        # NOTE: You can run this operator in any
+        # mode if only setting the active color
+        custom_apply_option = context.scene.color_plus.custom_apply_option
+        return context.mode == 'EDIT_MESH' \
+        or custom_apply_option == 'apply_to_col'
 
     def execute(self, context: Context):
         color_plus = context.scene.color_plus
-        if color_plus.custom_palette_apply_options == 'apply_to_sel':
-            bpy.ops.color_plus.edit_color(edit_type='apply', variation_value=self.custom_color_name)
-        else: # Apply to Active Color
+        if color_plus.custom_apply_option == 'apply_to_sel':
+            bpy.ops.color_plus.edit_color(
+                edit_type='apply', variation_value=self.custom_color_name
+            )
+        else: # Set color
             color_plus.color_wheel = getattr(color_plus, self.custom_color_name)
-
-            if context.preferences.addons[__package__].preferences.auto_palette_refresh:
-                bpy.ops.color_plus.refresh_palette_outliner()
         return {'FINISHED'}
 
 
@@ -619,17 +652,20 @@ class COLORPLUS_OT_apply_color_to_border(DefaultsOperator):
 
     def execute(self, context: Context):
         color_plus = context.scene.color_plus
-        saved_context=context.object.mode
+        saved_mode=context.object.mode
 
         bpy.ops.object.mode_set(mode='OBJECT')
         context.object.select_set(True)
 
         selected_mesh_objects = \
-            [ob for ob in context.selectable_objects if ob.type == 'MESH']
+            [ob for ob in context.selected_objects if ob.type == 'MESH']
         for ob in selected_mesh_objects:
+            if get_active_color(ob.data) is None:
+                create_color(ob.data)
+
             bm = bmesh.new()
             bm.from_mesh(ob.data)
-            layer = create_bmesh_color(bm, ob)
+            layer = get_bmesh_active_color(bm, ob.data)
 
             # Get border vertices & linked faces
             border_vertices = set([])
@@ -663,9 +699,14 @@ class COLORPLUS_OT_apply_color_to_border(DefaultsOperator):
                         loop[layer] = color_plus.color_wheel
             bm.to_mesh(ob.data)
 
-        bpy.ops.object.mode_set(mode=saved_context)
-        if context.preferences.addons[__package__].preferences.auto_palette_refresh:
-            bpy.ops.color_plus.refresh_palette_outliner()
+        bpy.ops.object.mode_set(mode=saved_mode)
+
+        preferences = \
+            context.preferences.addons[__package__].preferences
+        if preferences.auto_palette_refresh:
+            bpy.ops.color_plus.refresh_palette_outliner(
+                color=color_plus.color_wheel
+            )
         return {'FINISHED'}
 
 
@@ -685,12 +726,10 @@ class COLORPLUS_OT_dirty_vertex_color(DefaultsOperator):
 
     def execute(self, context: Context):
         if not bpy.ops.paint.vertex_paint_toggle.poll():
-            self.report(
-                {'ERROR'}, "Something went wrong, could not run operator"
-            )
+            self.report({'ERROR'}, "Could not switch to Vertex Paint mode")
             return {'CANCELLED'}
 
-        saved_context=context.mode
+        saved_mode=context.mode
 
         context.object.data.use_paint_mask = self.selection_only
 
@@ -706,113 +745,134 @@ class COLORPLUS_OT_dirty_vertex_color(DefaultsOperator):
             normalize=self.normalize
         )
 
-        if saved_context != 'PAINT_VERTEX':
+        if saved_mode != 'PAINT_VERTEX':
             bpy.ops.object.editmode_toggle()
         return {'FINISHED'}
 
 
-class COLORPLUS_OT_generate_vcolor(DefaultsOperator):
+class COLORPLUS_OT_generate_color(DefaultsOperator):
     """Generate a VColor mask based on the settings below"""
-    bl_idname = "color_plus.generate_vcolor"
+    bl_idname = "color_plus.generate_color"
     bl_label = "Generate Vertex Color"
+
+    bm = None
+    layer = None
+    uv_islands = None
+
+    def uv_shell(self):
+        for island_idxs in self.uv_islands:
+            random_color = [random(), random(), random(), 1]
+            for face_idx in island_idxs:
+                face = self.bm.faces[face_idx]
+                for loop in face.loops:
+                    loop[self.layer] = random_color
+
+    def uv_border(self):
+        color_plus = bpy.context.scene.color_plus
+        for island_idxs in self.uv_islands:
+            if color_plus.generate_per_uv_border == 'random_col':
+                random_color = [random(), random(), random(), 1]
+
+            # Get border vertices & linked faces
+            border_vertices = set([])
+            linked_faces = set([])
+            for edge in self.bm.edges:
+                if edge.is_boundary \
+                or (edge.link_faces[0].index in island_idxs \
+                and edge.link_faces[1].index not in island_idxs) \
+                or (edge.link_faces[0].index not in island_idxs \
+                and edge.link_faces[1].index in island_idxs):
+                    for vert in edge.verts:
+                        if vert.index in border_vertices:
+                            continue
+                        border_vertices.add(vert.index)
+                for vert in edge.verts:
+                    if vert.index not in border_vertices:
+                        continue
+                    for face in edge.link_faces:
+                        if face in linked_faces:
+                            continue
+                        linked_faces.add(face)
+
+            # Assign a color to interior loops of linked faces
+            for face in linked_faces:
+                if face.index not in island_idxs:
+                    continue
+                for loop in face.loops:
+                    if loop.vert.index not in border_vertices:
+                        continue
+                    if color_plus.generate_per_uv_border == 'random_col':
+                        loop[self.layer] = random_color
+                    else: # Apply active color
+                        loop[self.layer] = color_plus.color_wheel
+
+    def face(self):
+        for face in self.bm.faces:
+            random_color = [random(), random(), random(), 1]
+            for loop in face.loops:
+                loop[self.layer] = random_color
+
+    def vertex(self):
+        for face in self.bm.faces:
+            random_color = [random(), random(), random(), 1]
+            for loop in face.loops:
+                loop[self.layer] = random_color
+
+                for vert in self.bm.verts:
+                    random_color = [random(), random(), random(), 1]
+                    for loop in vert.link_loops:
+                        loop[self.layer] = random_color
+
+    def point(self):
+        for face in self.bm.faces:
+            for loop in face.loops:
+                random_color = [random(), random(), random(), 1]
+                loop[self.layer] = random_color
 
     def execute(self, context: Context):
         color_plus = context.scene.color_plus
-        saved_context=context.object.mode
+        saved_mode=context.object.mode
 
         bpy.ops.object.mode_set(mode='OBJECT')
         context.object.select_set(True)
 
         no_uv_obs = []
         selected_mesh_objects = \
-            [ob for ob in context.selectable_objects if ob.type == 'MESH']
+            [ob for ob in context.selected_objects if ob.type == 'MESH']
         for ob in selected_mesh_objects:
             if color_plus.generate in ('per_uv_shell', 'per_uv_border'):
                 try:
-                    uv_islands = \
+                    self.uv_islands = \
                         bpy_extras.mesh_utils.mesh_linked_uv_islands(ob.data)
                 except AttributeError:
                     no_uv_obs.append(ob.name)
                     continue
 
-            bm = bmesh.new()
-            bm.from_mesh(ob.data)
-            bm.faces.ensure_lookup_table()
-            layer = create_bmesh_color(bm, ob)
+            if get_active_color(ob.data) is None:
+                create_color(ob.data)
+
+            self.bm = bmesh.new()
+            self.bm.from_mesh(ob.data)
+            self.bm.faces.ensure_lookup_table()
+            self.layer = get_bmesh_active_color(self.bm, ob.data)
 
             if color_plus.generate == 'per_uv_shell':
-                for island_idxs in uv_islands:
-                    random_color = [random(), random(), random(), 1]
-
-                    for face_idx in island_idxs:
-                        face = bm.faces[face_idx]
-
-                        for loop in face.loops:
-                            loop[layer] = random_color
-
+                self.uv_shell()
             elif color_plus.generate == 'per_uv_border':
-                for island_idxs in uv_islands:
-                    if color_plus.generate_per_uv_border == 'random_col':
-                        random_color = [random(), random(), random(), 1]
-
-                    # Get border vertices & linked faces
-                    border_vertices = set([])
-                    linked_faces = set([])
-                    for edge in bm.edges:
-                        if edge.is_boundary \
-                        or (edge.link_faces[0].index in island_idxs \
-                        and edge.link_faces[1].index not in island_idxs) \
-                        or (edge.link_faces[0].index not in island_idxs \
-                        and edge.link_faces[1].index in island_idxs):
-                            for vert in edge.verts:
-                                if vert.index in border_vertices:
-                                    continue
-                                border_vertices.add(vert.index)
-
-                        for vert in edge.verts:
-                            if vert.index not in border_vertices:
-                                continue
-                            for face in edge.link_faces:
-                                if face in linked_faces:
-                                    continue
-                                linked_faces.add(face)
-
-                    # Assign a color to interior loops of linked faces
-                    for face in linked_faces:
-                        if face.index not in island_idxs:
-                            continue
-                        for loop in face.loops:
-                            if loop.vert.index not in border_vertices:
-                                continue
-                            if color_plus.generate_per_uv_border == 'random_col':
-                                loop[layer] = random_color
-                            else: # Apply active color
-                                loop[layer] = color_plus.color_wheel
-
+                self.uv_border()
             elif color_plus.generate == 'per_face':
-                for face in bm.faces:
-                    random_color = [random(), random(), random(), 1]
-                    for loop in face.loops:
-                        loop[layer] = random_color
-
+                self.face()
             elif color_plus.generate == 'per_vertex':
-                for vert in bm.verts:
-                    random_color = [random(), random(), random(), 1]
-                    for loop in vert.link_loops:
-                        loop[layer] = random_color
-
+                self.vertex()
             elif color_plus.generate == 'per_point':
-                for face in bm.faces:
-                    for loop in face.loops:
-                        random_color = [random(), random(), random(), 1]
-                        loop[layer] = random_color
-            bm.to_mesh(ob.data)
+                self.point()
+            self.bm.to_mesh(ob.data)
 
         if color_plus.generate in ('per_uv_shell', 'per_uv_border') \
         and no_uv_obs:
             self.report({'INFO'}, f"UVs not found for: {no_uv_obs}")
 
-        bpy.ops.object.mode_set(mode=saved_context)
+        bpy.ops.object.mode_set(mode=saved_mode)
 
         preferences = \
             context.preferences.addons[__package__].preferences
@@ -832,7 +892,7 @@ classes = (
     COLORPLUS_OT_edit_color_keymap_placeholder,
     COLORPLUS_OT_quick_color_switch,
     COLORPLUS_OT_quick_interpolation_switch,
-    COLORPLUS_OT_get_active_color,
+    COLORPLUS_OT_set_color_from_active,
     COLORPLUS_OT_vcolor_shading,
     COLORPLUS_OT_refresh_palette_outliner,
     COLORPLUS_OT_change_outliner_color,
@@ -844,7 +904,7 @@ classes = (
     COLORPLUS_OT_custom_color_apply,
     COLORPLUS_OT_apply_color_to_border,
     COLORPLUS_OT_dirty_vertex_color,
-    COLORPLUS_OT_generate_vcolor
+    COLORPLUS_OT_generate_color
 )
 
 def register():

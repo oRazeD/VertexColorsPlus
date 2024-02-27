@@ -183,7 +183,7 @@ class COLORPLUS_PT_apply(PanelInfo, Panel):
         edit_alpha_op.variation_value = 'alpha_only'
 
         col = layout.column(align=True)
-        col.operator("color_plus.get_active_color", icon='RESTRICT_COLOR_ON')
+        col.operator("color_plus.set_color_from_active", icon='RESTRICT_COLOR_ON')
         col.operator("color_plus.vcolor_shading", icon='SHADING_TEXTURE')
 
         box = layout.box()
@@ -349,7 +349,7 @@ class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
         col = layout.column(align=True)
 
         row = col.row(align=True)
-        row.prop(color_plus, 'custom_palette_apply_options', expand=True)
+        row.prop(color_plus, 'custom_apply_option', expand=True)
 
         col.separator(factor=.2)
 
@@ -533,7 +533,7 @@ class COLORPLUS_PT_color_generation(PanelInfo, Panel):
         col.scale_y = 1.3
 
         if color_plus.generate != 'dirty_color':
-            col.operator('color_plus.generate_vcolor', icon='GROUP_VCOL')
+            col.operator('color_plus.generate_color', icon='GROUP_VCOL')
         else:
             col.operator('color_plus.dirty_vertex_color', icon='GROUP_VCOL')
 
@@ -595,7 +595,7 @@ class COLORPLUS_MT_pie_menu(Menu):
 
         col3 = box.column()
         col3.scale_y = 1.25
-        col3.operator("color_plus.get_active_color", icon='RESTRICT_COLOR_ON')
+        col3.operator("color_plus.set_color_from_active", icon='RESTRICT_COLOR_ON')
         col3.operator("color_plus.vcolor_shading", icon='SHADING_TEXTURE')
         #6 - RIGHT
         col = pie.column()

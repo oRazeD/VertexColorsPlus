@@ -260,7 +260,7 @@ class COLORPLUS_property_group(bpy.types.PropertyGroup):
         )
     )
 
-    custom_palette_apply_options: EnumProperty(
+    custom_apply_option: EnumProperty(
         items=(
             ('apply_to_sel', "Apply Color", ""),
             ('apply_to_col', "Set Color", "")
@@ -466,16 +466,19 @@ class COLORPLUS_property_group(bpy.types.PropertyGroup):
 
 class COLORPLUS_collection_property(bpy.types.PropertyGroup):
     def update_palette_color(self, _context: Context):
-        if [*self.color] != [*self.saved_color]:
-            bpy.ops.color_plus.change_outliner_color(saved_active_idx=self.id)
+        if [*self.color] == [*self.saved_color]:
+            return
+        bpy.ops.color_plus.change_outliner_color(saved_active_idx=self.id)
 
-            # This only somewhat fixes the
-            # clearing [1,1,1,1] val colors? Strange.
-            if [*self.color[:3]] != [1, 1, 1] and [*self.saved_color[:3]] != [1, 1, 1]:
-                bpy.ops.color_plus.refresh_palette_outliner(saved_active_idx=self.id)
+        # This only somewhat fixes the
+        # clearing [1,1,1,1] val colors
+        if [*self.color[:3]] != [1, 1, 1] \
+        and [*self.saved_color[:3]] != [1, 1, 1]:
+            bpy.ops.color_plus.refresh_palette_outliner(
+                saved_active_idx=self.id
+            )
 
     id: IntProperty()
-
     color: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',
@@ -487,7 +490,6 @@ class COLORPLUS_collection_property(bpy.types.PropertyGroup):
         description=\
             "Click to change the current color for this layer (WARNING: If the set color matches another color or is pure white it will be merged/removed!)"
     )
-
     saved_color: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',

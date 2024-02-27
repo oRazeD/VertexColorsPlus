@@ -1,5 +1,5 @@
 
-BLANK_ARRAY = (1.0, 1.0, 1.0, 1.0)
+BLANK_ARRAY = (1, 1, 1, 1)
 MAX_OUTLINER_ITEM_MSG = "Max # of colors in outliner"
 
 
