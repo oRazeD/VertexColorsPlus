@@ -248,12 +248,12 @@ class COLORPLUS_property_group(bpy.types.PropertyGroup):
         bpy.ops.color_plus.refresh_palette_outliner()
 
     live_color_tweak: BoolProperty(
-        name="Live Tweak",
+        name="Live Edit",
         description=\
             "If changing the Active Color will update the current selection"
     )
 
-    interpolation_type: EnumProperty(
+    interp_type: EnumProperty(
         items=(
             ('smooth', "Smooth", ""),
             ('hard', "Hard", "")

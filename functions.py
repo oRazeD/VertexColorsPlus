@@ -1,15 +1,13 @@
 from typing import Iterable
 
 from bpy.types import Mesh, Attribute
-from bmesh.types import BMesh, BMLayerItem
+from bmesh.types import BMesh, BMLayerItem, BMLoop, BMVert
 
 
-def convert_to_plain_array(array_object: Iterable) -> list:
-    """Convert custom datatypes to plain 4-size arrays."""
-    converted_list = [
-        array_object[0], array_object[1],
-        array_object[2], array_object[3]
-    ]
+def iterable_to_list(iterable: Iterable) -> list:
+    """Convert 4-size iterable to a plain list."""
+    converted_list = [iterable[0], iterable[1],
+                      iterable[2], iterable[3]]
     return converted_list
 
 
@@ -62,11 +60,15 @@ def get_active_color(data: Mesh) -> Attribute | None:
         return None
 
 
-def get_bmesh_active_color(bm: BMesh, data: Mesh) -> BMLayerItem | None:
-    """Get the active color attribute layer from `BMesh`."""
+def get_bmesh_active_color(
+        bm: BMesh, data: Mesh
+    ) -> tuple[BMLayerItem, str] | None:
+    """Get the active color attribute layer from `BMesh`.
+
+    Returns `BMLayerItem` and the component type."""
     color_attributes = data.color_attributes
     if not color_attributes or not public_color_exists(data):
-        return None
+        return None, None
 
     idx = color_attributes.active_color_index
     if idx == -1:
@@ -75,13 +77,47 @@ def get_bmesh_active_color(bm: BMesh, data: Mesh) -> BMLayerItem | None:
     try:
         attribute = color_attributes[idx]
     except IndexError:
-        return None
+        return None, None
     if attribute.domain == 'CORNER':
         if attribute.data_type == 'FLOAT_COLOR':
-            return bm.loops.layers.float_color.get(attribute.name)
-        return bm.loops.layers.color.get(attribute.name)
+            return bm.loops.layers.float_color.get(attribute.name), "loop"
+        return bm.loops.layers.color.get(attribute.name), "loop"
     if attribute.domain == 'POINT':
         if attribute.data_type == 'FLOAT_COLOR':
-            return bm.verts.layers.float_color.get(attribute.name)
-        return bm.verts.layers.color.get(attribute.name)
-    return None
+            return bm.verts.layers.float_color.get(attribute.name), "vert"
+        return bm.verts.layers.color.get(attribute.name), "vert"
+    return None, None
+
+
+def get_component_colors(
+        bm: BMesh, layer, layer_type: str, selected_only: bool=False
+    ) -> dict[BMLoop | BMVert, list]:
+    """Get all components (vert/edge/face) based on a given layer type.
+
+    Returns a dict of `BMLoop` or `BMVert` and the color."""
+    if layer_type == "loop":
+        loops = []
+        for face in bm.faces:
+            for loop in face.loops:
+                if not selected_only or loop.vert.select:
+                    loops.append(loop)
+        sequence = loops
+    else: # Verts
+        if selected_only:
+            sequence = [vert for vert in bm.verts if vert.select]
+        else:
+            sequence = bm.verts
+
+    components = {}
+    for component in sequence:
+        converted_color = iterable_to_list(component[layer])
+        components[component] = converted_color
+    return components
+
+
+def component_select(component, layer_type) -> bool:
+    if layer_type == "loop" and component.vert.select:
+        return True
+    if layer_type == "vert" and component.select:
+        return True
+    return False

@@ -6,6 +6,7 @@ import bpy
 from bpy.types import Panel, UIList, Menu
 
 from .preferences import COLORPLUS_PT_presets
+from .functions import get_active_color
 from .constants import MAX_OUTLINER_ITEM_MSG
 
 
@@ -34,7 +35,7 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
         if in_edit_mode:
             switch_mode = "Painting"
         col.operator(
-            'color_plus.switch_to_paint_or_edit',
+            'color_plus.toggle_vertex_paint_mode',
             text=f"Switch to {switch_mode}",
             icon='VPAINT_HLT' if context.mode == 'EDIT_MESH' else 'EDITMODE_HLT'
         )
@@ -61,34 +62,34 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
         box = col.box()
         col2 = box.column(align=True)
 
-        split = col2.split()
+        split = col2.split(factor=.4)
         split.scale_y = 1.3
-        split.label(text='Active Color', icon='COLOR')
+        split.label(text='Color', icon='COLOR')
 
         row = split.row(align=True)
         row.prop(color_plus, 'color_wheel')
-        row.operator("color_plus.quick_color_switch", icon='LOOP_FORWARDS')
+        row.operator("color_plus.active_color_switch", icon='LOOP_FORWARDS')
 
-        split = col2.split()
+        split = col2.split(factor=.4)
         split.scale_y = 1.3
         split.separator()
 
-        split_row = split.split(factor=.25)
-        split_row.separator()
+        split_row = split.split(factor=.7)
+        split_row.prop(color_plus, 'live_color_tweak')
         split_row.prop(color_plus, 'alt_color_wheel')
-
-        split = col2.split()
-        split.enabled = in_edit_mode
-        split.separator()
-        split.prop(color_plus, 'live_color_tweak')
 
         col = box.column(align=True)
         split = col.split(factor=.4)
-        split.label(text=' Interpolation')
+        split.label(text='Interpolation')
         row = split.row()
         row.enabled = in_edit_mode
-        row.prop(color_plus, 'interpolation_type', expand=True)
-        if color_plus.interpolation_type == 'hard':
+        if context.object and context.object.type == 'MESH':
+            active_color = get_active_color(context.object.data)
+            if active_color is not None \
+            and active_color.domain != 'CORNER':
+                row.enabled = False
+        row.prop(color_plus, 'interp_type', expand=True)
+        if color_plus.interp_type == 'hard':
             box = col.box()
             box.scale_y = .8
             box.label(text='Face selections only!', icon='INFO')
@@ -103,18 +104,21 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
         row = layout.row()
         col = row.column()
 
-        mesh = context.object.data
+        if not context.object \
+        or context.object.type != 'MESH':
+            return
+
+        data = context.object.data
         if bpy.app.version < (3, 2, 0):
             col.template_list(
                 "MESH_UL_vcols",
                 "vcols",
-                mesh,
+                data,
                 "vertex_colors",
-                mesh.vertex_colors,
+                data.vertex_colors,
                 "active_index",
                 rows=3
             )
-
             col = row.column(align=True)
             col.operator("mesh.vertex_color_add", icon='ADD', text="")
             col.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
@@ -122,37 +126,45 @@ class COLORPLUS_PT_ui(PanelInfo, Panel):
             col.template_list(
                 "MESH_UL_color_attributes",
                 "color_attributes",
-                mesh,
+                data,
                 "color_attributes",
-                mesh.color_attributes,
+                data.color_attributes,
                 "active_color_index",
                 rows=3,
             )
-
             col = row.column(align=True)
-            col.operator("geometry.color_attribute_add", icon='ADD', text="")
-            col.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
-
+            col.operator("geometry.color_attribute_add",
+                         icon='ADD', text="")
+            col.operator("geometry.color_attribute_remove",
+                         icon='REMOVE', text="")
             col.separator()
-
             col.menu("MESH_MT_color_attribute_context_menu",
                      icon='DOWNARROW_HLT', text="")
 
-            # self.draw_attribute_warnings(context, layout) TODO
+            # TODO:
+            # self.draw_attribute_warnings(context, layout)
 
 
 class COLORPLUS_PT_apply(PanelInfo, Panel):
     bl_label = 'Apply'
     bl_parent_id = 'COLORPLUS_PT_ui'
 
-    @classmethod
-    def poll(cls, context):
-        return context.mode in ('EDIT_MESH', 'PAINT_VERTEX')
-
     def draw(self, context):
         color_plus = context.scene.color_plus
 
         layout = self.layout
+
+        col = layout.column(align=True)
+        col.operator("color_plus.apply_attribute_shading",
+                     icon='SHADING_TEXTURE')
+        col.operator("color_plus.remove_all_vertex_color",
+                     icon='TRASH')
+
+        if context.mode not in ('EDIT_MESH', 'PAINT_VERTEX'):
+            return
+
+        col.operator("color_plus.set_color_from_active",
+                     icon='RESTRICT_COLOR_ON')
 
         col = layout.column(align=True)
         col.scale_y = 1.1
@@ -181,10 +193,6 @@ class COLORPLUS_PT_apply(PanelInfo, Panel):
         )
         edit_alpha_op.edit_type = 'apply'
         edit_alpha_op.variation_value = 'alpha_only'
-
-        col = layout.column(align=True)
-        col.operator("color_plus.set_color_from_active", icon='RESTRICT_COLOR_ON')
-        col.operator("color_plus.vcolor_shading", icon='SHADING_TEXTURE')
 
         box = layout.box()
         col = box.column(align=True)
@@ -343,8 +351,8 @@ class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
 
         #row = col.row(align=True)
         #row.enabled = False
-        #row.operator("color_plus.vcolor_shading", text='Import', icon='IMPORT')
-        #row.operator("color_plus.vcolor_shading", text='Export', icon='EXPORT')
+        #row.operator("color_plus.apply_attribute_shading", text='Import', icon='IMPORT')
+        #row.operator("color_plus.apply_attribute_shading", text='Export', icon='EXPORT')
 
         col = layout.column(align=True)
 
@@ -454,62 +462,8 @@ class COLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
 
         scene = context.scene
 
-        if 'bakeToVertexColor_1_0_8' in context.preferences.addons:
-            row = layout.row()
-            row.label(text="Bake Type")
-            row.prop(scene.bake_to_vertex_color_props, "bake_pass", text="")
-
-            row = layout.row()
-            row.label(text="Bake UV")
-            row.prop(scene.bake_to_vertex_color_props, "bake_uv_type", text="")
-
-            row = layout.row()
-            row.label(text="Lightmap Resolution")
-            row.prop(scene.bake_to_vertex_color_props, "resolution", text="")
-
-            row = layout.row()
-            row.label(text="Samples")
-            row.prop(scene.bake_to_vertex_color_props, "samples", text="")
-
-            row = layout.row()
-            row.label(text="Smooth VColors")
-            row.prop(scene.bake_to_vertex_color_props,
-            "smooth_vertex_colors", text="")
-
-            row = layout.row()
-            row.label(text="Delete Bake Image")
-            row.prop(scene.bake_to_vertex_color_props,
-                     "delete_bake_image", text="")
-
-            row = layout.row()
-            row.label(text="VColor Name")
-            row.prop(scene.bake_to_vertex_color_props,
-                     "vertex_color_name", text="")
-
-            row = layout.row()
-            row.scale_y = 1.5
-            row.separator(factor=.25)
-
-            row = layout.row()
-            row.scale_y = 1.5
-            bake_to_vcolor_op = row.operator('object.bake_to_vertex_col',
-                                             text='Bake Pass to Vertex Color',
-                                             icon='RENDER_STILL')
-            bake_to_vcolor_op.resolution = \
-                int(scene.bake_to_vertex_color_props.resolution)
-            bake_to_vcolor_op.samples = \
-                scene.bake_to_vertex_color_props.samples
-            bake_to_vcolor_op.vertex_color_name = \
-                scene.bake_to_vertex_color_props.vertex_color_name
-            bake_to_vcolor_op.smooth_vertex_colors = \
-                scene.bake_to_vertex_color_props.smooth_vertex_colors
-            bake_to_vcolor_op.bake_uv_type = \
-                scene.bake_to_vertex_color_props.bake_uv_type
-            bake_to_vcolor_op.delete_bake_image = \
-                scene.bake_to_vertex_color_props.delete_bake_image
-            bake_to_vcolor_op.bake_pass = \
-                scene.bake_to_vertex_color_props.bake_pass
-        else:
+        # TODO: Validate latest build
+        if not 'bakeToVertexColor_1_0_8' in context.preferences.addons:
             box = layout.box()
             box.operator(
                 "wm.url_open",
@@ -518,6 +472,62 @@ class COLORPLUS_PT_bake_to_vertex_color(PanelInfo, Panel):
             box.label(text='You do not have Bake to', icon='ERROR')
             box.label(text='Vertex Color installed & enabled')
             box.label(text='or you do not have the latest version')
+            return
+
+        row = layout.row()
+        row.label(text="Bake Type")
+        row.prop(scene.bake_to_vertex_color_props, "bake_pass", text="")
+
+        row = layout.row()
+        row.label(text="Bake UV")
+        row.prop(scene.bake_to_vertex_color_props, "bake_uv_type", text="")
+
+        row = layout.row()
+        row.label(text="Lightmap Resolution")
+        row.prop(scene.bake_to_vertex_color_props, "resolution", text="")
+
+        row = layout.row()
+        row.label(text="Samples")
+        row.prop(scene.bake_to_vertex_color_props, "samples", text="")
+
+        row = layout.row()
+        row.label(text="Smooth VColors")
+        row.prop(scene.bake_to_vertex_color_props,
+        "smooth_vertex_colors", text="")
+
+        row = layout.row()
+        row.label(text="Delete Bake Image")
+        row.prop(scene.bake_to_vertex_color_props,
+                    "delete_bake_image", text="")
+
+        row = layout.row()
+        row.label(text="VColor Name")
+        row.prop(scene.bake_to_vertex_color_props,
+                    "vertex_color_name", text="")
+
+        row = layout.row()
+        row.scale_y = 1.5
+        row.separator(factor=.25)
+
+        row = layout.row()
+        row.scale_y = 1.5
+        bake_to_vcolor_op = row.operator('object.bake_to_vertex_col',
+                                            text='Bake Pass to Vertex Color',
+                                            icon='RENDER_STILL')
+        bake_to_vcolor_op.resolution = \
+            int(scene.bake_to_vertex_color_props.resolution)
+        bake_to_vcolor_op.samples = \
+            scene.bake_to_vertex_color_props.samples
+        bake_to_vcolor_op.vertex_color_name = \
+            scene.bake_to_vertex_color_props.vertex_color_name
+        bake_to_vcolor_op.smooth_vertex_colors = \
+            scene.bake_to_vertex_color_props.smooth_vertex_colors
+        bake_to_vcolor_op.bake_uv_type = \
+            scene.bake_to_vertex_color_props.bake_uv_type
+        bake_to_vcolor_op.delete_bake_image = \
+            scene.bake_to_vertex_color_props.delete_bake_image
+        bake_to_vcolor_op.bake_pass = \
+            scene.bake_to_vertex_color_props.bake_pass
 
 
 class COLORPLUS_PT_color_generation(PanelInfo, Panel):
@@ -589,14 +599,16 @@ class COLORPLUS_MT_pie_menu(Menu):
         split = col3.split(align=True)
         split.scale_y = 1.25
         split.label(text=' Interpolation')
-        split.prop(color_plus, 'interpolation_type', expand=True)
+        split.prop(color_plus, 'interp_type', expand=True)
 
         col3.separator(factor=.5)
 
         col3 = box.column()
         col3.scale_y = 1.25
-        col3.operator("color_plus.set_color_from_active", icon='RESTRICT_COLOR_ON')
-        col3.operator("color_plus.vcolor_shading", icon='SHADING_TEXTURE')
+        col3.operator("color_plus.set_color_from_active",
+                      icon='RESTRICT_COLOR_ON')
+        col3.operator("color_plus.apply_attribute_shading",
+                      icon='SHADING_TEXTURE')
         #6 - RIGHT
         col = pie.column()
 
@@ -656,11 +668,11 @@ class COLORPLUS_MT_pie_menu(Menu):
         edit_color_op.edit_type = 'apply'
         edit_color_op.variation_value = 'color_wheel'
         #7 - TOP - LEFT
-        pie.operator("color_plus.quick_color_switch",
+        pie.operator("color_plus.active_color_switch",
                      text='Quick Color Switch',
                      icon='LOOP_FORWARDS')
         #9 - TOP - RIGHT
-        pie.operator("color_plus.quick_interpolation_switch",
+        pie.operator("color_plus.interpolation_switch",
                      text='Smooth/Hard Switch',
                      icon='MATSHADERBALL')
         # 1 - BOTTOM - LEFT
