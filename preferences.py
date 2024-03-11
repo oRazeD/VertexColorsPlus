@@ -351,6 +351,21 @@ class COLORPLUS_property_group(bpy.types.PropertyGroup):
         min=0, max=1
     )
 
+    material_visibility: EnumProperty(
+        items=(
+            ('none', "None",       ""),
+            ('.125', "0 (R=.125)", ""),
+            ('.25',  "1 (R=.25)",  ""),
+            ('.375', "2 (R=.375)", ""),
+            ('.5',   "3 (R=.5)",   ""),
+            ('.625', "4 (R=.625)", ""),
+            ('.75',  "5 (R=.75)",  ""),
+            ('.875', "6 (R=.875)", ""),
+            ('1',    "7 (R=1)",    ""),
+        ),
+        name="Visibility Color"
+    )
+
     color_custom_1: FloatVectorProperty(
         name="",
         subtype='COLOR_GAMMA',

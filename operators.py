@@ -102,6 +102,10 @@ class COLORPLUS_OT_edit_color(DefaultsOperator):
                 rgba_value[0], rgba_value[1],
                 rgba_value[2], component[layer][3]
             )
+        elif self.variation_value == 'visibility':
+            color_plus = bpy.context.scene.color_plus
+            vis_color = color_plus.material_visibility
+            component[layer] = (float(vis_color), 0, 0, 1)
         else:
             component[layer] = rgba_value
 
