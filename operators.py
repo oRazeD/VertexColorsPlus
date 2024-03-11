@@ -343,35 +343,36 @@ class COLORPLUS_OT_refresh_palette_outliner(DefaultsOperator):
                 break
         return colors
 
+    def format_palette_color_name(self, color) -> list:
+        item_color = []
+        if bpy.context.scene.color_plus.rgb_hsv_convert_options == 'rgb':
+            for channel in color[:-1]:
+                item_color.append(round(channel * 255))
+        else: # HSV
+            color_hsv = \
+                colorsys.rgb_to_hsv(color[0], color[1], color[2])
+            for channel in color_hsv:
+                if channel.is_integer():
+                    channel = round(channel)
+                item_color.append(round(channel, 2))
+        if color[3].is_integer():
+            alpha_channel = round(color[3])
+        else:
+            alpha_channel = round(color[3], 3)
+        item_color.append(alpha_channel)
+        return item_color
+
     def generate_palette(self, ob: Object, colors: list) -> None:
         for idx, color in enumerate(colors):
-            # Format color naming
-            item_color = []
-            if bpy.context.scene.color_plus.rgb_hsv_convert_options == 'rgb':
-                for channel in color[:-1]:
-                    item_color.append(round(channel * 255))
-            else: # HSV
-                color_hsv = \
-                    colorsys.rgb_to_hsv(color[0], color[1], color[2])
-                for channel in color_hsv:
-                    if channel.is_integer():
-                        channel = round(channel)
-                    item_color.append(round(channel, 2))
-            if color[3].is_integer():
-                alpha_channel = round(color[3])
-            else:
-                alpha_channel = round(color[3], 3)
-            item_color.append(alpha_channel)
-
-            # Create palette color
             item = ob.color_palette.add()
             item.saved_color = color
             item.color = color
-            item.id = len(ob.color_palette) - 1
+            #item.id = len(ob.color_palette) - 1
             if idx == self.saved_active_idx:
                 item.id = self.saved_active_idx
             else:
                 item.id = len(ob.color_palette) - 1
+            item_color = self.format_palette_color_name(color)
             item.name = "({}, {}, {}, {})".format(
                 item_color[0], item_color[1],
                 item_color[2], item_color[3]
@@ -487,7 +488,7 @@ class COLORPLUS_OT_get_active_outliner_color(DefaultsOperator):
     def execute(self, context: Context):
         ob = context.object
         context.scene.color_plus.color_wheel = \
-            ob.color_palette[ob.color_palette_active]
+            ob.color_palette[ob.color_palette_active].color
         return {'FINISHED'}
 
 

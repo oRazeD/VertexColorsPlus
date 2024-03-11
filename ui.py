@@ -243,7 +243,7 @@ class COLORPLUS_PT_apply(PanelInfo, Panel):
 
 class COLORPLUS_UL_items(UIList):
     def draw_item(self, _context, layout, _data, item, _icon,
-                  _active_data, _active_propname, _index):
+                  _active_data, _active_propname, _index=0, _flt_flag=0):
         row = layout.row()
         row.scale_x = 0.325
         row.prop(item, 'color')
@@ -347,12 +347,21 @@ class COLORPLUS_PT_custom_palette(PanelInfo, Panel):
         layout = self.layout
 
         col = layout.column(align=True)
-        COLORPLUS_PT_presets.draw_menu(col, text="Custom Palette Presets")
+        COLORPLUS_PT_presets.draw_menu( # pylint: disable=E1120
+            col, text="Custom Palette Presets"
+        )
 
+        # TODO: Custom palette I/O handling
         #row = col.row(align=True)
         #row.enabled = False
-        #row.operator("color_plus.apply_attribute_shading", text='Import', icon='IMPORT')
-        #row.operator("color_plus.apply_attribute_shading", text='Export', icon='EXPORT')
+        #row.operator(
+        #   "color_plus.apply_attribute_shading",
+        #   text='Import', icon='IMPORT'
+        #)
+        #row.operator(
+        #    "color_plus.apply_attribute_shading",
+        #    text='Export', icon='EXPORT'
+        #)
 
         col = layout.column(align=True)
 
