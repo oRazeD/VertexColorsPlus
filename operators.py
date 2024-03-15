@@ -191,14 +191,12 @@ class COLORPLUS_OT_active_color_switch(DefaultsOperator):
 
     def execute(self, context: Context):
         color_plus = context.scene.color_plus
-
         saved_color_tweak = color_plus.live_color_tweak
         color_plus.live_color_tweak = False
-
-        color_plus.color_wheel = iterable_to_list(color_plus.color_wheel)
-        color_plus.alt_color_wheel = \
-            iterable_to_list(color_plus.alt_color_wheel)
-
+        color_wheel = iterable_to_list(color_plus.color_wheel)
+        alt_color_wheel = iterable_to_list(color_plus.alt_color_wheel)
+        color_plus.color_wheel = alt_color_wheel
+        color_plus.alt_color_wheel = color_wheel
         color_plus.live_color_tweak = saved_color_tweak
         return {'FINISHED'}
 
